@@ -16,5 +16,5 @@ if __name__ == '__main__':
     os.mkdir(args.output_dir)
 
     d = ApiDefinitionManager()
-    IBClientResponseTypeGenerator.generate(response_class_fname)
+    IBClientResponseTypesGenerator.generate(response_class_fname)
     IBAsyncioClientGenerator.generate(ib_asyncio_client_fname)

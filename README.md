@@ -4,6 +4,10 @@ The goal of this package is to facilitate generation of wrappers around the TWS 
 
 Testing has been performed with TWS API 9.85.1.
 
+# Examples
+
+- [Example of using the asyncio API](./examples/test_requests.py)
+
 # TWS API Setup
 
 Interactive Brokers does not allow redistribution of the TWS API so it needs to be setup by accepting the license agreement via the following steps:
@@ -59,7 +63,7 @@ The TWS API uses the following patterns:
 
     Example `EClient.reqHistoricalTicks`, `EWrapper.historicalTicks`, `EWrapper.historicalTicksBidAsk`, `EWrapper.historicalTicksLast`
 
-The high-level api is captured in `ib_wrapper/api_definition.py`
+The high-level api definitions are captured in `ib_wrapper/api_definition.py`
 
 # Code Generation
 
@@ -69,17 +73,23 @@ The code generator assumes the TWS API is available as part of the normal module
 
 ## Generated Classes
 
-Classes are generated in the `ib_wrapper/gen` directory and exported as part of the build and distribution process.
+Classes are generated in the `ib_wrapper/gen` directory as part of the build. 
 
-- `IBAsyncioClient`: A client that exposes awaitable parts of the TWS API via asyncio semantics. It also implements the following features:
-    - Allows callbacks to be registered for streaming events in a threadsafe manner.
-    - Uses the `IBWriter` class to write messages to TWS in a separate thread (mitigating the caller from being blocked due to I/O)
-    - Supports request ID mechanics for API that support it. For example request IDs are automatically generated. Streaming callbacks can be registered per request ID, and subscriptions can be cancelled per request ID.
-
-- Client Response Data Classes:
-    - Data classes are generated to encapsulate the result of all update methods in each API definition
-    - Additionally, for definitions that have more than one update method, a `Response` class is generated that encapsulates the results of each of the update methods.
-    - Lists are used For definitions that have a done method or flag.
+The following classes are generated:
+- Response Classes:
+    - A response class is generated for every request that has one or more callbacks.
+    - The fields across all the update callbacks for a request are merged into a single class with the name `{RequestName}Response`.
+    - The fields across all the streaming callbacks are merged into a single class with the name `{RequestName}Stream`.
+- `IBAsyncioClient`: Exposes the relevant parts of the TWS API via asyncio semantics.
+    - API Description:
+        - Requests that have update callbacks asynchronously return a `{RequestName}Response`.
+        - Requests that have streaming callbacks asynchronously return a `Subscription` instance that can be instance that can be used to cancel the subscription.
+        - Requests that have both update and subscription callbacks will return a `({RequestName}Response, Subscription)` tuple
+        - If a request uses a `done` flag or a done callback the request returns a `List{RequestName}Response` instead.
+        - A streaming callback can be registered when calling the respective request method. The callbacks take a`{RequestName}Stream` argument.
+        - Request ids are implicitly managed via the `Subscription` class. Requests that are not streaming cannot be cancelled.
+    - Other improvements
+        - To avoid blocking the asyncio running loop, an `IBWriter` class to write messages to TWS in a separate thread.
 
 # Useful References
 

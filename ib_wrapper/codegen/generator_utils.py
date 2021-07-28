@@ -1,3 +1,4 @@
+from os import stat
 from subprocess import call
 from ib_wrapper.api_definition import ApiDefinition
 import inspect
@@ -6,38 +7,39 @@ from typing import Callable, List
 class GeneratorUtils:
     @staticmethod
     def type_name(name: str):
-        return name[0].upper() + name[1:]
-
+        return name[0].upper() + name[1:]    
+        
     @staticmethod
-    def response_type_for_update_method(d: ApiDefinition, u: callable):
-        type = GeneratorUtils.type_name(u.__name__)
-        if d.has_done_flag or d.done_method is not None:
-            type = f"List[{type}]"
-        return type
-
-    @staticmethod
-    def response_type_for_stream_method(d: ApiDefinition, u: callable):
-        return GeneratorUtils.type_name(u.__name__)
-
-    @staticmethod
-    def response_type_for_definition(d: ApiDefinition):
-        if (d.update_methods is None):
+    def streaming_type(d: ApiDefinition):
+        if d.stream_methods is None:
             return None
-        elif (len(d.update_methods) == 1):
-            return GeneratorUtils.response_type_for_update_method(d, d.update_methods[0])
-        else:
-            return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
+        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Stream"
 
     @staticmethod
-    def data_class_members(d: ApiDefinition, m: Callable) -> List[inspect.Parameter]:
+    def response_type(d: ApiDefinition):
+        if d.update_methods is None:
+            return 'None'
+        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
+
+    @staticmethod
+    def data_class_members(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[inspect.Parameter]:
         to_skip = [ "self" ]
-        if d.has_done_flag and d.update_methods is not None and m in d.update_methods:
+        if d.has_done_flag and d.update_methods is not None and not streaming_class:
             to_skip.append("done")
-        return [ v for v in inspect.signature(m).parameters.values() if v.name not in to_skip ]
-
-    @staticmethod
-    def forward_method_parameters_dict_style(params: List[inspect.Parameter]) -> str:
-        return ",".join([ f"{v.name} = {v.name}" for v in params ])
+        if d.req_id_names is not None:
+            to_skip.extend(d.req_id_names)
+        ret = []
+        processed = {}
+        for m in methods:
+            for v in inspect.signature(m).parameters.values():
+                if v.name not in to_skip:
+                    if v.name in processed:
+                        if processed[v.name] != v.kind:
+                            raise RuntimeError(f"{v.name} parameter has different types in different callbacks")
+                    else:
+                        processed[v.name] = v.kind
+                        ret.append(v)
+        return ret
 
     @staticmethod
     def forward_parameters(m: callable) -> str:

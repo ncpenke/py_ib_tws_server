@@ -1,56 +1,50 @@
+from inspect import Parameter
 from ib_wrapper.api_definition import *
 from ib_wrapper.codegen.generator_utils import *
 import os
 from typing import List
 
-class IBClientResponseTypeGenerator:
+class IBClientResponseTypesGenerator:
     @staticmethod
     def generate(filename):
-        def data_classes_for_request_definition(d: ApiDefinition):
+        def response_classes(d: ApiDefinition):
             lines = []
             if d.update_methods is not None:
-                for m in d.update_methods:
-                    lines.extend(data_class_for_method(d, m))
+                lines.extend(data_class(d, d.update_methods, False))
             if d.stream_methods is not None:
-                for m in d.stream_methods:
-                    lines.extend(data_class_for_method(d, m))
+                lines.extend(data_class(d, d.stream_methods, True))
             return lines
 
-        def data_class_for_method(d: ApiDefinition, m: Callable) -> List[str]:
-            params = GeneratorUtils.data_class_members(d, m)
-            lines = [
-    f"""
+        def init_params(params: List[Parameter]):
+            return ", ".join([f"{p}= None" for p in params])
+
+        def init_body(params: List[Parameter]):
+            return "        ".join([f"object.__setattr__(self, '{p.name}', {p.name}){os.linesep}" for p in params])
+
+        def data_class(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[str]:
+            params = GeneratorUtils.data_class_members(d, methods, streaming_class)
+            lines = [f"""
 @dataclass(frozen=True)
-class {GeneratorUtils.type_name(m.__name__)}:"""
-            ]
+class {GeneratorUtils.streaming_type(d) if streaming_class else GeneratorUtils.response_type(d)}:
+    def __init__(self, {init_params(params)}):
+        {init_body(params)}"""]
             lines.extend([f"    {p}" for p in params])
             lines.append("")
             return lines
 
-        def multi_update_data_class(d: ApiDefinition):
-            lines = [
-    f"""
-@dataclass(frozen=True)
-class {GeneratorUtils.response_type_for_definition(d)}:"""
-            ]
-            for u in d.update_methods:
-                lines.append(f"    {u.__name__}: {GeneratorUtils.response_type_for_update_method(d,u)}")
-            lines.append("")
-            return lines
-
-        multi_update_definitions = []
-
         with open(filename, "w") as f:
             f.write("""
 from dataclasses import dataclass
-from ibapi.wrapper import *
 import ibapi.common
+import ibapi.contract
+import ibapi.execution
+import ibapi.order
+import ibapi.order_state
+import ibapi.scanner
 from typing import List
 """         )
 
             for d in ApiDefinitionManager.DEFINITIONS:
-                f.write(os.linesep.join(data_classes_for_request_definition(d)))
-                if (d.update_methods is not None and len(d.update_methods) > 1):
-                    multi_update_definitions.append(d)
-            for d in multi_update_definitions:
-                f.write(os.linesep.join(multi_update_data_class(d)))
+                if d.request_method is None:
+                    continue
+                f.write(os.linesep.join(response_classes(d)))
