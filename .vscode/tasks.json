@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "codegen",
+            "type": "shell",
+            "command": "rm -rf ib_tws_server/gen && PYTHONPATH=. python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                },
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "test_requests",
+            "type": "shell",
+            "command": "python3 examples/test_requests.py",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                },
+                "cwd": "${workspaceFolder}"
+            }
+        }
+
+    ]
+}

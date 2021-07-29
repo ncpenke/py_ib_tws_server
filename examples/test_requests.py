@@ -4,8 +4,8 @@ import json
 from logging import DEBUG
 from ibapi import contract
 from ibapi.contract import Contract
-from ib_wrapper.gen.ib_client_responses import *
-from ib_wrapper.gen.ib_asyncio_client import *
+from ib_tws_server.gen.ib_client_responses import *
+from ib_tws_server.gen.ib_asyncio_client import *
 from typing import Awaitable, Type
 
 logger = logging.getLogger()

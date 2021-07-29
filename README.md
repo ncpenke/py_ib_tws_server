@@ -63,17 +63,17 @@ The TWS API uses the following patterns:
 
     Example `EClient.reqHistoricalTicks`, `EWrapper.historicalTicks`, `EWrapper.historicalTicksBidAsk`, `EWrapper.historicalTicksLast`
 
-The high-level api definitions are captured in `ib_wrapper/api_definition.py`
+The high-level api definitions are captured in `ib_tws_server/api_definition.py`
 
 # Code Generation
 
-The code generation is implemented as part of the `codegen` module and can be run via `ib_wrapper/codegen/main.py`. 
+The code generation is implemented as part of the `codegen` module and can be run via `ib_tws_server/codegen/main.py`. 
 
 The code generator assumes the TWS API is available as part of the normal module search path. Therefore, the TWS API version can be changed by modifying the module path either via overriding the `PYTHONPATH` environment variable, using Python virtual environments or any other mechanism. 
 
 ## Generated Classes
 
-Classes are generated in the `ib_wrapper/gen` directory as part of the build. 
+Classes are generated in the `ib_tws_server/gen` directory as part of the build. 
 
 The following classes are generated:
 - Response Classes:

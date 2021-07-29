@@ -3,7 +3,7 @@ from collections import defaultdict
 from logging import getLogger
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
-from ib_wrapper.asyncio.ib_writer import IBWriter
+from ib_tws_server.asyncio.ib_writer import IBWriter
 from threading import Lock, Thread
 from typing import Awaitable, Callable, Dict, Generic, Union, TypeVar
 

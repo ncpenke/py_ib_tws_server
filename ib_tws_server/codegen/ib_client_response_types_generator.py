@@ -1,6 +1,6 @@
 from inspect import Parameter
-from ib_wrapper.api_definition import *
-from ib_wrapper.codegen.generator_utils import *
+from ib_tws_server.api_definition import *
+from ib_tws_server.codegen.generator_utils import *
 import os
 from typing import List
 

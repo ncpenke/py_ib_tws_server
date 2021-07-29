@@ -1,8 +1,8 @@
 import argparse
-from ib_wrapper.codegen.ib_asyncio_client_generator import IBAsyncioClientGenerator
+from ib_tws_server.codegen.ib_asyncio_client_generator import IBAsyncioClientGenerator
 from posixpath import pathsep
-from ib_wrapper.codegen.ib_client_response_types_generator import *
-from ib_wrapper.api_definition import *
+from ib_tws_server.codegen.ib_client_response_types_generator import *
+from ib_tws_server.api_definition import *
 import os
 
 if __name__ == '__main__':

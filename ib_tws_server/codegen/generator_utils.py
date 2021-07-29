@@ -1,6 +1,6 @@
 from os import stat
 from subprocess import call
-from ib_wrapper.api_definition import ApiDefinition
+from ib_tws_server.api_definition import ApiDefinition
 import inspect
 from typing import Callable, List
 

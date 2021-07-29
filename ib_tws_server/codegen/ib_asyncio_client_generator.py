@@ -1,8 +1,8 @@
-from ib_wrapper.asyncio.ib_client_base import IBClientBase
+from ib_tws_server.asyncio.ib_client_base import IBClientBase
 from subprocess import call
-from ib_wrapper.codegen.generator_utils import GeneratorUtils
-from ib_wrapper.api_definition import *
-from ib_wrapper.codegen.generator_utils import *
+from ib_tws_server.codegen.generator_utils import GeneratorUtils
+from ib_tws_server.api_definition import *
+from ib_tws_server.codegen.generator_utils import *
 import inspect
 
 class IBAsyncioClientGenerator:
@@ -195,8 +195,8 @@ from collections import defaultdict
 import functools
 from ibapi.client import *
 from ibapi.wrapper import *
-from ib_wrapper.asyncio.ib_client_base import *
-from ib_wrapper.gen.ib_client_responses import *
+from ib_tws_server.asyncio.ib_client_base import *
+from ib_tws_server.gen.ib_client_responses import *
 from typing import Callable, Dict, List, Tuple
 
 class IBAsyncioClient(IBClientBase):
