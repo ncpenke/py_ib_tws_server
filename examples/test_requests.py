@@ -48,7 +48,7 @@ class StreamingCallback:
         self._check_response = check_response
 
     def __call__(self, res):
-        self._loop.call_soon_threadsafe(self._future.set_result, res)
+        self._future.set_result(res)
 
     async def wait_for_result(self) -> bool:
         self._res = await self._future

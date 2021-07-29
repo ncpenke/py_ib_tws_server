@@ -81,7 +81,7 @@ class IBAsyncioClientGenerator:
             if d.cancel_method is None:
                 raise RuntimeError(f"Request does not support cancellation {d.request_method.__name__}")
 
-            return f"{current_subscription(d,m)}= Subscription(streaming_cb, self.{d.cancel_method.__name__}, {request_id_parameter_name(d.request_method)})"
+            return f"{current_subscription(d,m)}= Subscription(streaming_cb, self.{d.cancel_method.__name__}, {request_id_parameter_name(d.request_method)}, asyncio.get_running_loop())"
 
         def async_request_method(d: ApiDefinition):
             return_type = request_return_type(d)

@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 from logging import getLogger
 from ibapi.client import EClient
@@ -11,10 +12,11 @@ logger = getLogger()
 RequestId = Union[int, str]
 
 class Subscription:
-    def __init__(self, streaming_cb: Callable, cancel_cb: Callable, reqId: int):
+    def __init__(self, streaming_cb: Callable, cancel_cb: Callable, reqId: int, loop:asyncio.AbstractEventLoop):
         self.cancel_cb = cancel_cb
         self.streaming_cb = streaming_cb
         self.reqId = reqId
+        self.loop = loop
     
     def cancel(self):
         if (self.reqId is None):
@@ -70,10 +72,14 @@ class IBClientBase(EClient,EWrapper):
 
     def call_streaming_cb(self, id: RequestId, res: any):
         cb = None
+        loop = None
         with self._lock:
             if id in self._subscriptions:
-                cb = self._subscriptions[id].streaming_cb
-        cb(res)
+                s = self._subscriptions[id]
+                cb = s.streaming_cb
+                loop = s.loop
+        loop.call_soon_threadsafe(cb, res)
+        
 
     def cancel_request(self, id: RequestId):
         response_cb = None
