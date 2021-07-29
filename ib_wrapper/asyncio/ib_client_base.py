@@ -16,7 +16,7 @@ class Subscription:
         self.streaming_cb = streaming_cb
         self.reqId = reqId
     
-    async def cancel(self):
+    def cancel(self):
         if (self.reqId is None):
             self.cancel_cb()
         else:
@@ -53,16 +53,16 @@ class IBClientBase(EClient,EWrapper):
     def connectionClosed(self):
         self._writer.queue.put(lambda *a, **k: None)
 
-    def call_response_cb(self, id: RequestId):
+    def call_response_cb(self, id: RequestId, res=None):
         cb = None
-        res = None
         with self._lock:
             if not id in self._req_state:
                 return
 
             s = self._req_state[id]
             cb = s.cb
-            res = s.response
+            if res is None:
+                res = s.response
             del self._req_state[id]
 
         if cb is not None:
@@ -113,4 +113,4 @@ class IBClientBase(EClient,EWrapper):
             return len(self._subscriptions) 
 
     def get_subscription_and_response_no_lock(self, id:RequestId):
-        return (self._req_state[id] if id in self._req_state else None, self._subscriptions[id] if id in self._subscriptions else None)
+        return (self._req_state[id].response if id in self._req_state else None, self._subscriptions[id] if id in self._subscriptions else None)

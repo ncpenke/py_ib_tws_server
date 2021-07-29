@@ -145,10 +145,10 @@ class IBAsyncioClientGenerator:
             {current_request_state(d, m)}.response = {response_instance(d, m)}"""
 
         def call_response_cb(d: ApiDefinition, m: Callable):
-            if d.req_id_names is not None:
-                return f"self.call_response_cb({request_id_parameter_name(m)})"
+            if d.update_methods is not None and d.stream_methods is not None:
+                return f"self.call_response_cb({request_id(d,m)}, self.get_subscription_and_response_no_lock({request_id(d,m)}))"
             elif d.update_methods is not None:
-                return f"self.call_response_cb('{d.request_method.__name__}')"
+                return f"self.call_response_cb({request_id(d,m)})"
             else:
                 return ""
 
