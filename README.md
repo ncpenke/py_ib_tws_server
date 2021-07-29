@@ -1,6 +1,8 @@
 # Introduction
 
-The goal of this package is to facilitate generation of wrappers around the TWS Python API to build services using OpenAPI, gRPC, asyncio, and other frameworks. This work is distinct from other projects in that it doesn't attempt to re-implement the TWS API. Instead, the API is left intact, and wrappers are generated on top of it.
+The goal of this package is to facilitate wrapping the Interactive Brokers TWS Python API to expose it as a service using GraphQL, and other frameworks. 
+
+This work is distinct from other projects in that it doesn't attempt to re-implement the TWS API. Instead, the TWS API is used as is, and custom behavior is implemented through code generation and supporting classes.
 
 Testing has been performed with TWS API 9.85.1.
 
@@ -8,7 +10,11 @@ Testing has been performed with TWS API 9.85.1.
 
 - [Example of using the asyncio API](./examples/test_requests.py)
 
-# TWS API Setup
+# TWS API
+
+The following section describes the Interactive Brokers TWS API setup and contains notes that describe the TWS API.
+
+## TWS API Setup
 
 Interactive Brokers does not allow redistribution of the TWS API so it needs to be setup by accepting the license agreement via the following steps:
 
@@ -17,9 +23,9 @@ Interactive Brokers does not allow redistribution of the TWS API so it needs to 
     1. python3 setup.py bdist_wheel
     2. python3 -m pip install --user --upgrade dist/ibapi-*-py3-none-any.whl
 
-# TWS API Notes
+The following are notes that characterize the TWS API to help with the design of this project.
 
-## Threading
+## TWS API Threading Model
 
 The TWS API uses the following threading model:
 
@@ -27,34 +33,32 @@ The TWS API uses the following threading model:
 2. Messages to TWS can be sent from any thread via the `EClient` class, but is a blocking operation.
 3. The main event loop for the `EClient` class, is responsible for decoding messages sent by TWS by taking them out of the queue used by `EReader`. The dequeue operation is blocking, so the `EClient` event loop is typically run in a dedicated thread.
 
-## Patterns
+## TWS API Patterns
 
-The TWS API uses the following patterns:
+The TWS API uses the following request/response patterns:
 
-1. Request a one time status. These have a single request method and a single response callback. 
+1. Queries that have a single item response. These have a single method to make a request, an optional method to cancel the request and a single callback for the response. 
 
     Example: `EClient.reqCurrentTime` and `EWrapper.currentTime` 
 
-2. Request a subscription for account-wide state updates. These have the following methods:
+2. Queries that have a response consisting of a list of items. These have a single method to make a request, an optional method to cancel the request, and one or more callbacks for each item. Additionally, there's a method or flag in the callbacks to signal the end of the list.
     
-    - A request method to start the subscription
-    - A cancel method to stop the subscription
-    - One or more update method for subscription updates
-    - One ore more streaming methods for continues updates
-    - For requests that return more than one update, a done method to indicate the end of a set of updates
-
     Example: `EClient.reqPositions`, `EClient.cancelPositions`, `EWrapper.position`, `EWrapper.positionEnd`
 
-3. Request a subscription for state updates by request id. These have the same methods as those of 2. except they take an additional reqId parameter.
+3. Subscriptions. These have a single method to start the subscription, a method to stop the subscription, and one ore more callbacks to stream status updates.
+
+    Example" `EClient.reqTickByTickData`, `EClient.tickByTickAllLast`, `EWrapper.tickByTickBidAsk` `EClient.cancelTickByTickData`
+
+4. A variant of this pattern are requests that take a requestId parameter. This allows the same type of request to be issued with different parameters
 
     Example: `EClient.reqPositionsMulti`, `EClient.cancelPositionsMulti`, `EWrapper.positionMulti`, `EWrapper.positionMultiEnd`
 
-4. Fire and forget requests. These have a single request method. 
+5. Fire and forget requests. These have a single request method. 
 
     Example: `EClient.setServerLogLevel`.
 
-5. Other one-off patterns. These have the following methods:
-    
+6. A one-off pattern that wraps both a subscription and query in a single request call controlled by a flag.
+
     - A request method. 
     - An optional cancel method. 
     - One or more update methods. 
@@ -63,13 +67,13 @@ The TWS API uses the following patterns:
 
     Example `EClient.reqHistoricalTicks`, `EWrapper.historicalTicks`, `EWrapper.historicalTicksBidAsk`, `EWrapper.historicalTicksLast`
 
-The high-level api definitions are captured in `ib_tws_server/api_definition.py`
-
 # Code Generation
 
-The code generation is implemented as part of the `codegen` module and can be run via `ib_tws_server/codegen/main.py`. 
+The code generation is implemented as part of the `codegen` module and can be run via [ib_tws_server/codegen/main.py](./ib_tws_server/codegen/main.py). 
 
-The code generator assumes the TWS API is available as part of the normal module search path. Therefore, the TWS API version can be changed by modifying the module path either via overriding the `PYTHONPATH` environment variable, using Python virtual environments or any other mechanism. 
+The code generator assumes the TWS API is available as part of the python module search path. The TWS API version that the generator uses can be changed by modifying the module path via overriding the `PYTHONPATH` environment variable, using Python virtual environments, etc.
+
+The code generator uses definitions captured in [ib_tws_server/api_definition.py](./ib_tws_server/api_definition.py). These definitions describe the TWS API in terms of patterns described in the [TWS API Patterns](#tws-api-patterns) section.
 
 ## Generated Classes
 
@@ -78,18 +82,18 @@ Classes are generated in the `ib_tws_server/gen` directory as part of the build.
 The following classes are generated:
 - Response Classes:
     - A response class is generated for every request that has one or more callbacks.
-    - The fields across all the update callbacks for a request are merged into a single class with the name `{RequestName}Response`.
-    - The fields across all the streaming callbacks are merged into a single class with the name `{RequestName}Stream`.
-- `IBAsyncioClient`: Exposes the relevant parts of the TWS API via asyncio semantics.
-    - API Description:
-        - Requests that have update callbacks asynchronously return a `{RequestName}Response`.
-        - Requests that have streaming callbacks asynchronously return a `Subscription` instance that can be instance that can be used to cancel the subscription.
-        - Requests that have both update and subscription callbacks will return a `({RequestName}Response, Subscription)` tuple
-        - If a request uses a `done` flag or a done callback the request returns a `List{RequestName}Response` instead.
-        - A streaming callback can be registered when calling the respective request method. The callbacks take a`{RequestName}Stream` argument.
-        - Request ids are implicitly managed via the `Subscription` class. Requests that are not streaming cannot be cancelled.
-    - Other improvements
-        - To avoid blocking the asyncio running loop, an `IBWriter` class to write messages to TWS in a separate thread.
+    - The fields across all the callbacks for a request are merged into a single class with the name `{RequestName}Response`.
+    - For subscriptions, the fields across all the streaming callbacks are merged into a single class with the name `{RequestName}Stream`.
+    - All classes have an error code, and an error string to relay errors sent by TWS.
+- `IBAsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
+    - All request methods are asynchronous and declared using `async`
+    - Query methods that have a single item response return a `{RequestName}Response`. 
+    - Query methods that have a response consisting of a list of items return a `List{RequestName}Response`.
+    - Subscriptions return a `Subscription` instance that can be used to cancel the subscription, and additional take a callback that's queued on the running asyncio loop of the caller.
+    - Request ids of the original TWS API are implicitly managed. 
+    - Currently only subscriptions can be cancelled. Even though TWS API allows cancelling queries with multiple responses this is not exposed as part of the API. 
+- Other improvements
+    - To avoid blocking the asyncio running loop, an `IBWriter` class to send messages to TWS in a separate thread.
 
 # Useful References
 

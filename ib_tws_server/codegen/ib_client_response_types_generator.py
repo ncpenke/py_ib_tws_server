@@ -9,10 +9,10 @@ class IBClientResponseTypesGenerator:
     def generate(filename):
         def response_classes(d: ApiDefinition):
             lines = []
-            if d.update_methods is not None:
-                lines.extend(data_class(d, d.update_methods, False))
-            if d.stream_methods is not None:
-                lines.extend(data_class(d, d.stream_methods, True))
+            if d.callback_methods is not None:
+                lines.extend(data_class(d, d.is_subscription))
+                if d.subscription_flag_name is not None:
+                    lines.extend(data_class(d, True))
             return lines
 
         def init_params(params: List[Parameter]):
@@ -21,11 +21,11 @@ class IBClientResponseTypesGenerator:
         def init_body(params: List[Parameter]):
             return "        ".join([f"object.__setattr__(self, '{p.name}', {p.name}){os.linesep}" for p in params])
 
-        def data_class(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[str]:
-            params = GeneratorUtils.data_class_members(d, methods, streaming_class)
+        def data_class(d: ApiDefinition, is_subscription: bool) -> List[str]:
+            params = GeneratorUtils.data_class_members(d, d.callback_methods, is_subscription)
             lines = [f"""
 @dataclass(frozen=True)
-class {GeneratorUtils.streaming_type(d) if streaming_class else GeneratorUtils.response_type(d)}:
+class { GeneratorUtils.streaming_type(d) if is_subscription else GeneratorUtils.response_type(d) }:
     def __init__(self, {init_params(params)}):
         {init_body(params)}"""]
             lines.extend([f"    {p}" for p in params])

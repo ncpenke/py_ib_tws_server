@@ -78,14 +78,14 @@ class IBClientBase(EClient,EWrapper):
                 s = self._subscriptions[id]
                 cb = s.streaming_cb
                 loop = s.loop
-        loop.call_soon_threadsafe(cb, res)
-        
+        if loop is not None:
+            loop.call_soon_threadsafe(cb, res)
 
     def cancel_request(self, id: RequestId):
         response_cb = None
         with self._lock:
             if id in self._req_state:
-                response_cb = self._req_state[id]
+                response_cb = self._req_state[id].cb
                 del self._req_state[id]
             if id in self._subscriptions:
                 del self._subscriptions[id]
