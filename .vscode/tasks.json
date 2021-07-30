@@ -30,7 +30,32 @@
                 },
                 "cwd": "${workspaceFolder}"
             }
+        },
+        {
+            "label": "test_requests_debug",
+            "type": "shell",
+            "command": "python3 examples/test_requests.py -d",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                },
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "run_webserver",
+            "type": "shell",
+            "command": "uvicorn ib_tws_server.graphql.server:app",
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                },
+                "cwd": "${workspaceFolder}"
+            }
         }
-
     ]
 }

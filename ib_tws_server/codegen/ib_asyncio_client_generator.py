@@ -1,12 +1,13 @@
-from os import name, write
+from __future__ import annotations
 from ib_tws_server.asyncio.ib_client_base import IBClientBase
-from subprocess import call
 from ib_tws_server.codegen.generator_utils import GeneratorUtils
 from ib_tws_server.api_definition import *
 from ib_tws_server.codegen.generator_utils import *
 import inspect
+from subprocess import call
 
 class IBAsyncioClientGenerator:
+
     @staticmethod
     def generate(filename):
         def response_is_list(d: ApiDefinition):
@@ -76,7 +77,7 @@ class IBAsyncioClientGenerator:
 
         def async_request_method(d: ApiDefinition, is_subscription: bool):
             return_type = request_return_type(d, is_subscription)
-            signature = inspect.signature(d.request_method).replace(return_annotation=return_type)
+            signature = GeneratorUtils.signature(d.request_method).replace(return_annotation=return_type)
             params = list(signature.parameters.values())
             method_name = d.request_method.__name__
             param_values = [ p.name if p.name != d.subscription_flag_name else f"{d.subscription_flag_value}" for p in params ]
@@ -95,6 +96,7 @@ class IBAsyncioClientGenerator:
                 return f"""
 
     async def {method_name}{signature}:
+        {GeneratorUtils.doc_string(d.request_method)}
         {init_request_id(d, d.request_method)}
         ret: Subscription = None
         with self._lock:
@@ -105,6 +107,7 @@ class IBAsyncioClientGenerator:
                 return f"""
 
     async def {method_name}{signature}:
+        {GeneratorUtils.doc_string(d.request_method)}
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         def cb(res: {request_return_type(d, is_subscription)}):
@@ -119,28 +122,30 @@ class IBAsyncioClientGenerator:
                 return f"""
 
     async def {method_name}{signature}:
+        {GeneratorUtils.doc_string(d.request_method)}
         {init_request_id(d, d.request_method)}
         self._writer.queue.put({bind_request_method(d, param_values, is_subscription)})
         return None"""
 
         def response_instance(d: ApiDefinition, m: Callable):
-            return f"{GeneratorUtils.response_type(d)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))})"
+            return f"{GeneratorUtils.response_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))}))"
 
         def streaming_instance(d: ApiDefinition, m: Callable):
-            return f"{GeneratorUtils.streaming_type(d)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))})"
+            return f"{GeneratorUtils.streaming_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))}))"
 
         def update_response(d: ApiDefinition, m:Callable):
             if response_is_list(d):
                 return f"""
-            req_state ={current_request_state(d, m)}
-            if req_state is not None:
+            if {request_id(d, m)} in self._req_state:
+                req_state = {current_request_state(d, m)}
                 if req_state.response is None:
                     req_state.response = [] 
                 req_state.response.append({response_instance(d, m)})"""
-            return f"""
-            req_state ={current_request_state(d, m)}
-            if req_state is not None:
-                req_state.response = {response_instance(d, m)}"""
+            else:
+                return f"""
+                req_state = {current_request_state(d, m)}
+                if req_state is not None:
+                    req_state.response = {response_instance(d, m)}"""
 
         def call_response_cb(d: ApiDefinition, m: Callable):
             if d.callback_methods is not None:
@@ -164,6 +169,7 @@ class IBAsyncioClientGenerator:
                 return f"""
 
     def {GeneratorUtils.method_declaration(m)}:
+        {GeneratorUtils.doc_string(m)}
         is_subscription: bool = False
         with self._lock:
             is_subscription = {request_id(d, m)} in self._subscriptions
@@ -176,6 +182,7 @@ class IBAsyncioClientGenerator:
             elif not d.is_subscription:
                 return f"""
     def {GeneratorUtils.method_declaration(m)}:
+        {GeneratorUtils.doc_string(m)}
         with self._lock:
             {update_response(d, m)}
         {call_response_cb_if_done(d, m)}"""
@@ -183,17 +190,22 @@ class IBAsyncioClientGenerator:
                 return f"""
 
     def {GeneratorUtils.method_declaration(m)}:
+        {GeneratorUtils.doc_string(m)}
         self.call_streaming_cb({request_id(d,m)}, {streaming_instance(d,m)})"""
 
         def done_method(d: ApiDefinition):
             return f"""
+
     def {GeneratorUtils.method_declaration(d.done_method)}:
-        {call_response_cb(d,m)}"""
+        {GeneratorUtils.doc_string(d.done_method)}
+        {call_response_cb(d,d.done_method)}"""
 
         def cancel_method(d: ApiDefinition):
             return f"""
+
     def {GeneratorUtils.method_declaration(d.cancel_method)}:
-        self.cancel_request({request_id(d,m)})
+        {GeneratorUtils.doc_string(d.cancel_method)}
+        self.cancel_request({request_id(d,d.cancel_method)})
         self._writer.queue.put({bind_method(d.cancel_method)})"""
 
         with open(filename, "w") as f:
@@ -201,10 +213,9 @@ class IBAsyncioClientGenerator:
 import asyncio
 from collections import defaultdict
 import functools
-from ibapi.client import *
-from ibapi.wrapper import *
 from ib_tws_server.asyncio.ib_client_base import *
-from ib_tws_server.gen.ib_client_responses import *
+from ib_tws_server.gen.client_responses import *
+from ib_tws_server.ib_imports import *
 from typing import Callable, Dict, List, Tuple
 
 class IBAsyncioClient(IBClientBase):
@@ -212,7 +223,7 @@ class IBAsyncioClient(IBClientBase):
         IBClientBase.__init__(self)
 """
             )
-            for d in ApiDefinitionManager.DEFINITIONS:
+            for d in ApiDefinitionManager.REQUEST_DEFINITIONS:
                 if d.request_method is not None:
                     if d.subscription_flag_name is not None:
                         f.write(async_request_method(d, False))

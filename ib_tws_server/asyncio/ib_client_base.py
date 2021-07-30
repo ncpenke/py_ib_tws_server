@@ -33,6 +33,7 @@ class IBClientBase(EClient,EWrapper):
     _lock: Lock
     _req_state: Dict[str, RequestState]
     _subscriptions: Dict[int, Subscription]
+    _expecting_disconnect: bool
 
     def __init__(self):
         EWrapper.__init__(self)
@@ -42,6 +43,7 @@ class IBClientBase(EClient,EWrapper):
         self._current_request_id = 0
         self._req_state = defaultdict(RequestState)
         self._subscriptions = defaultdict(Subscription)
+        self._expecting_disconnect = False
 
     def run(self):
         self._writer.start()
@@ -52,8 +54,16 @@ class IBClientBase(EClient,EWrapper):
             self._current_request_id += 1
             return self._current_request_id
 
+    def disconnect(self, clean=False):
+        self._expecting_disconnect = clean
+        return super().disconnect()
+
     def connectionClosed(self):
-        self._writer.queue.put(lambda *a, **k: None)
+        if self._expecting_disconnect:
+            # Wake up writer
+            self._writer.queue.put(lambda *a, **k: None)
+        else:
+            raise RuntimeError("Unexpected disconnect")
 
     def call_response_cb(self, id: RequestId, res=None):
         cb = None

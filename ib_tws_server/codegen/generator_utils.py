@@ -1,7 +1,8 @@
 from os import stat
 from subprocess import call
-from ib_tws_server.api_definition import ApiDefinition
+from ib_tws_server.api_definition import ApiDefinition, ApiDefinitionManager
 import inspect
+import re
 from typing import Callable, List
 
 class GeneratorUtils:
@@ -15,11 +16,19 @@ class GeneratorUtils:
 
     @staticmethod
     def streaming_type(d: ApiDefinition):
-        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Stream"
+        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Update"
+
+    @staticmethod
+    def top_level_type(d: ApiDefinition, is_subscription: bool):
+        return GeneratorUtils.streaming_type(d) if is_subscription else GeneratorUtils.response_type(d)
+
+    @staticmethod
+    def callback_type(u: Callable):
+        return GeneratorUtils.type_name(u.__name__)
 
     @staticmethod
     def req_id_param_name(u: Callable):
-        return list(inspect.signature(u).parameters.values())[1].name
+        return list(GeneratorUtils.signature(u).parameters.values())[1].name
 
     @staticmethod
     def req_id_names(d: ApiDefinition):
@@ -32,6 +41,33 @@ class GeneratorUtils:
                 ret.append(GeneratorUtils.req_id_param_name(m))
         return ret
 
+    params_regex = re.compile("[\s]*def[\s]+[^(]+\(([^)]+)\)")
+    _cached_signatures = {}
+    @staticmethod
+    def signature(u: object):
+        if u in GeneratorUtils._cached_signatures:
+            return GeneratorUtils._cached_signatures[u]
+        sig = inspect.signature(u)
+        if u.__name__ in ApiDefinitionManager.OVERRIDDEN_FUNCTION_SIGNATURES:
+            code = ApiDefinitionManager.OVERRIDDEN_FUNCTION_SIGNATURES[u.__name__]
+        else:
+            code = inspect.getsource(u)
+        params_raw = GeneratorUtils.params_regex.match(code).groups()[0].split(',')
+        sig_params = list(sig.parameters.values())
+        i = 0
+        if len(sig_params) != len(params_raw):
+            raise RuntimeError(f"Error in parameter parsing for method {sig}")
+        for sp,raw in zip(sig_params, params_raw):
+            raw = [ r.strip() for r in raw.split(":") ]
+            if (raw[0] != sp.name):
+                raise RuntimeError(f"Error in parameter parsing for method {sig} {raw[0]} {sp.name}")
+            if (len(raw) > 1):
+                sig_params[i] = sp.replace(annotation=raw[1])
+            i += 1
+        sig = sig.replace(parameters=sig_params)
+        GeneratorUtils._cached_signatures[u] = sig
+        return sig
+
     @staticmethod
     def data_class_members(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[inspect.Parameter]:
         to_skip = [ "self" ]
@@ -43,28 +79,25 @@ class GeneratorUtils:
         ret = []
         processed = {}
         for m in methods:
-            for v in inspect.signature(m).parameters.values():
+            for v in GeneratorUtils.signature(m).parameters.values():
                 if v.name not in to_skip:
                     if v.name in processed:
-                        if processed[v.name] != v.kind:
-                            raise RuntimeError(f"{v.name} parameter has different types in different callbacks")
+                        if processed[v.name] != v.annotation:
+                            raise RuntimeError(f"{v.name} parameter in method {m.__name__} has different types in different callbacks {processed[v.name]} {v.annotation}")
                     else:
-                        processed[v.name] = v.kind
+                        processed[v.name] = v.annotation
                         ret.append(v)
         return ret
 
     @staticmethod
     def forward_parameters(m: callable) -> str:
-        params = [ v.name for v in inspect.signature(m).parameters.values() ]
+        params = [ v.name for v in GeneratorUtils.signature(m).parameters.values() ]
         return ','.join(params)
 
     @staticmethod
     def method_declaration(m: callable) -> str:
-        return f"{m.__name__}{str(inspect.signature(m))}"
+        return f"{m.__name__}{str(GeneratorUtils.signature(m))}"
 
     @staticmethod
-    def modified_signature_str(c: callable, to_skip=List[str]):
-        #for n,t in inspect.signature(c).parametersreplace():
-        #   if not n in to_skip:
-        #        ret = ret + 
-        pass
+    def doc_string(m: callable) -> str:
+        return f'"""{m.__doc__}"""'

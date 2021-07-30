@@ -20,8 +20,10 @@ Interactive Brokers does not allow redistribution of the TWS API so it needs to 
 
 1. [Download the TWS API](https://interactivebrokers.github.io/#) 
 2. After unzipping the downloaded file, follow the steps in the `source/pythonclient/README.md`. At the time of the writing the API can be setup by running the following commands in the `source/pythonclient` directory of the unzipped folder:
-    1. python3 setup.py bdist_wheel
-    2. python3 -m pip install --user --upgrade dist/ibapi-*-py3-none-any.whl
+
+    1. Install the wheel module via `pip3 install wheel`
+    2. python3 setup.py bdist_wheel
+    3. python3 -m pip install --user --upgrade dist/ibapi-*-py3-none-any.whl
 
 The following are notes that characterize the TWS API to help with the design of this project.
 
@@ -45,7 +47,7 @@ The TWS API uses the following request/response patterns:
     
     Example: `EClient.reqPositions`, `EClient.cancelPositions`, `EWrapper.position`, `EWrapper.positionEnd`
 
-3. Subscriptions. These have a single method to start the subscription, a method to stop the subscription, and one ore more callbacks to stream status updates.
+3. Subscriptions. These have a single method to start the subscription, a method to stop the subscription, and one or more callbacks for status updates.
 
     Example" `EClient.reqTickByTickData`, `EClient.tickByTickAllLast`, `EWrapper.tickByTickBidAsk` `EClient.cancelTickByTickData`
 
@@ -58,12 +60,6 @@ The TWS API uses the following request/response patterns:
     Example: `EClient.setServerLogLevel`.
 
 6. A one-off pattern that wraps both a subscription and query in a single request call controlled by a flag.
-
-    - A request method. 
-    - An optional cancel method. 
-    - One or more update methods. 
-    - One or more streaming methods.
-    - Sometimes there's a separate done method or a done flag may also be passed via the update method.
 
     Example `EClient.reqHistoricalTicks`, `EWrapper.historicalTicks`, `EWrapper.historicalTicksBidAsk`, `EWrapper.historicalTicksLast`
 
@@ -80,11 +76,13 @@ The code generator uses definitions captured in [ib_tws_server/api_definition.py
 Classes are generated in the `ib_tws_server/gen` directory as part of the build. 
 
 The following classes are generated:
-- Response Classes:
-    - A response class is generated for every request that has one or more callbacks.
-    - The fields across all the callbacks for a request are merged into a single class with the name `{RequestName}Response`.
-    - For subscriptions, the fields across all the streaming callbacks are merged into a single class with the name `{RequestName}Stream`.
-    - All classes have an error code, and an error string to relay errors sent by TWS.
+- Callback Classes:
+    - A top-level class is generated for every request that has one or more callbacks.
+    - For callbacks for queries the response class has the name `{RequestName}Response`
+    - For callbacks for subscriptions, the generated class has the name `{RequestName}Update`
+    - All top-level classes also have an error code, and an error string to relay errors sent by TWS.
+    - The top-level classes have member fields for each of the callbacks.
+    - Additional classes are generated that encapsulate the parameters for each of the callbacks
 - `IBAsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
     - All request methods are asynchronous and declared using `async`
     - Query methods that have a single item response return a `{RequestName}Response`. 

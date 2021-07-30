@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from ibapi.client import EClient
-from ibapi.wrapper import EWrapper
+from ib_tws_server.ib_imports import *
 import inspect
 import logging
-from typing import Callable, Dict, List, MutableSet, Tuple
+from typing import Callable, Dict, List, MutableSet, Set, Type
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +40,20 @@ class ApiDefinition:
             if not self.callback_methods or len(self.callback_methods) == 0:
                 raise RuntimeError(f"Subscriptions should always have one or more callbacks {request_method.__name__}")
 
+        if self.subscription_flag_name is not None:
+            self.is_subscription = False
+
+class TypeDefinition:
+    container_type: type
+    item_type: str
+
+    def __init__(self, container_type: type, item_type: str):
+        self.container_type = container_type
+        self.item_type = item_type
+
 class ApiDefinitionManager:
     def __init__(self):
-        for d in ApiDefinitionManager.DEFINITIONS: self.flag_request_definition(d)
+        for d in ApiDefinitionManager.REQUEST_DEFINITIONS: self.flag_request_definition(d)
         self.log_unprocessed_methods()
         self._unknown_requests: MutableSet[str] = set()
         self._req_members: Dict[str, object] = {}
@@ -51,57 +61,58 @@ class ApiDefinitionManager:
 
     def log_unprocessed_methods(self):
         predicate = lambda x: inspect.isfunction(x) and not inspect.isbuiltin(x) and not inspect.ismethoddescriptor(x) and not x.__name__.startswith("__")
-        for name,type in inspect.getmembers(EClient, predicate): 
-            if not name in self.IGNORE_NAMES:
+        for name,val in inspect.getmembers(EClient, predicate): 
+            if not val in self.IGNORE_METHODS:
                 logger.error(f"Unhandled request: {name}")
         for name,type in inspect.getmembers(EWrapper, predicate):
-            if not name in self.IGNORE_NAMES:
+            if not val in self.IGNORE_METHODS:
                 logger.error(f"Unhandled response: {name}")
 
     def flag_request_definition(self, definition: ApiDefinition):
         if (definition.request_method is not None):
-            self.IGNORE_NAMES.add(definition.request_method.__name__)
+            self.IGNORE_METHODS.add(definition.request_method)
         if (definition.cancel_method is not None):
-            self.IGNORE_NAMES.add(definition.cancel_method.__name__)
+            self.IGNORE_METHODS.add(definition.cancel_method)
         if (definition.callback_methods is not None):
             for m in definition.callback_methods: 
-                self.IGNORE_NAMES.add(m.__name__)
+                self.IGNORE_METHODS.add(m)
         if (definition.done_method is not None):
-            self.IGNORE_NAMES.add(definition.done_method.__name__)
+            self.IGNORE_METHODS.add(definition.done_method)
 
-    IGNORE_NAMES: MutableSet[str] = set({
-        "connect",
-        "connectAck",
-        "connectionClosed",
-        "disconnect",
-        "error",
-        "isConnected",
-        "keyboardInterrupt",
-        "keyboardInterruptHard",
-        "logAnswer",
-        "logRequest",
-        "msgLoopRec",
-        "msgLoopTmo",
-        "reset",
-        "run",
-        "sendMsg",
-        "serverVersion",
-        "setConnState",
-        "setConnectionOptions",
-        "startApi",
-        "twsConnectionTime",
-        "verifyAndAuthCompleted",
-        "verifyAndAuthMessage",
-        "verifyAndAuthMessageAPI",
-        "verifyAndAuthRequest",
-        "verifyCompleted",
-        "verifyMessage",
-        "verifyMessageAPI",
-        "verifyRequest",
-        "winError"
+    IGNORE_METHODS: MutableSet[Callable] = set({
+        EClient.connect,
+        EWrapper.connectAck,
+        EWrapper.connectionClosed,
+        EClient.disconnect,
+        EWrapper.error,
+        EClient.isConnected,
+        EClient.keyboardInterrupt,
+        EClient.keyboardInterruptHard,
+        EWrapper.logAnswer,
+        EClient.logRequest,
+        EClient.msgLoopRec,
+        EClient.msgLoopTmo,
+        EClient.reset,
+        EClient.run,
+        EClient.sendMsg,
+        EClient.serverVersion,
+        EClient.setConnState,
+        EClient.setConnectionOptions,
+        EClient.startApi,
+        EClient.twsConnectionTime,
+        EWrapper.verifyAndAuthCompleted,
+        EClient.verifyAndAuthMessage,
+        EWrapper.verifyAndAuthMessageAPI,
+        EClient.verifyAndAuthRequest,
+        EWrapper.verifyCompleted,
+        EClient.verifyMessage,
+        EWrapper.verifyMessageAPI,
+        EClient.verifyRequest,
+        EWrapper.winError
     })
 
-    DEFINITIONS: List[ApiDefinition] = [
+    # Mappings of requests with their callbacks.
+    REQUEST_DEFINITIONS: List[ApiDefinition] = [
         ApiDefinition(request_method=EClient.queryDisplayGroups, 
             callback_methods=[EWrapper.displayGroupList],
             uses_req_id=True),
@@ -146,10 +157,10 @@ class ApiDefinitionManager:
             uses_req_id=True),
         ApiDefinition(request_method=EClient.reqMktData, 
             callback_methods=[EWrapper.tickPrice, EWrapper.tickSize, 
-                EWrapper.tickEFP, EWrapper.tickGeneric, 
+                EWrapper.tickEFP,
                 EWrapper.tickNews, EWrapper.rerouteMktDataReq, 
                 EWrapper.rerouteMktDepthReq, EWrapper.tickReqParams, 
-                EWrapper.tickString, EWrapper.deltaNeutralValidation],
+                EWrapper.deltaNeutralValidation],
             cancel_method=EClient.cancelMktData,
             done_method=EWrapper.tickSnapshotEnd,
             subscription_flag_name = 'snapshot',
@@ -163,8 +174,7 @@ class ApiDefinitionManager:
         ApiDefinition(request_method=EClient.reqNewsBulletins,
             callback_methods=[EWrapper.updateNewsBulletin],
             cancel_method=EClient.cancelNewsBulletins,
-            is_subscription = True,
-            uses_req_id=True),
+            is_subscription = True),
         ApiDefinition(request_method=EClient.placeOrder,
             callback_methods=[EWrapper.orderStatus],
             is_subscription = True,
@@ -261,9 +271,6 @@ class ApiDefinitionManager:
         ApiDefinition(request_method=EClient.reqSoftDollarTiers,
             callback_methods=[EWrapper.softDollarTiers],
             uses_req_id=True),
-        ApiDefinition(request_method=EClient.reqSoftDollarTiers,
-            callback_methods=[EWrapper.softDollarTiers],
-            uses_req_id=True),
         ApiDefinition(request_method=EClient.requestFA,
             callback_methods=[EWrapper.receiveFA]),
         ApiDefinition(request_method=EClient.setServerLogLevel),
@@ -277,3 +284,58 @@ class ApiDefinitionManager:
         ApiDefinition(request_method=None, callback_methods=[EWrapper.marketDataType]),
         ApiDefinition(request_method=None, callback_methods=[EWrapper.orderBound, EWrapper.orderStatus,EWrapper.openOrder,EWrapper.openOrderEnd])
     ]
+
+    # Manual type mappings since TWS API does not use type aliases for these
+    TYPE_MAPPINGS: Dict[str, TypeDefinition] = {
+        "SetOfString": TypeDefinition(set, 'str'),
+        "SetOfFloat": TypeDefinition(set, 'float'),
+        "ListOfOrder": TypeDefinition(list, 'Order'),
+        "ListOfFamilyCode": TypeDefinition(list, 'FamilyCode') ,
+        "ListOfContractDescription": TypeDefinition(list, 'ContractDescription'),
+        "ListOfDepthExchanges": TypeDefinition(list, 'DepthMktDataDescription'),
+        "ListOfNewsProviders": TypeDefinition(list, 'NewsProvider'),
+        "HistogramDataList": TypeDefinition(list, 'HistogramData'),
+        "ListOfPriceIncrements": TypeDefinition(list, 'PriceIncrement'),
+        "ListOfHistoricalTick": TypeDefinition(list, 'HistoricalTick'),
+        "ListOfHistoricalTickBidAsk": TypeDefinition(list, 'HistoricalTickBidAsk'),
+        "ListOfHistoricalTickLast": TypeDefinition(list, 'HistoricalTickLast'),
+        "TagValueList": TypeDefinition(list, 'TagValue'),
+        "TickType": TypeDefinition(None, 'TickTypeEnum'),
+        "FaDataType": TypeDefinition(None, "FaDataTypeEnum"),
+        "MarketDataType": TypeDefinition(None, "MarketDataTypeEnum"),
+        'List[SoftDollarTier]': TypeDefinition(list, 'SoftDollarTier'),
+        'OrderId': TypeDefinition(None, 'int')
+    }
+
+    def default_order():
+        o = Order()
+        o.algoParams = TagValueList()
+        o.smartComboRoutingParams = TagValueList()
+        return 0
+
+    # Default objects for some api types to detect all the types
+    OBJECT_TYPE_ANNOTATIONS = {
+        Contract.__name__: {
+            'comboLegs': TypeDefinition(list, 'ComboLeg'),
+            'deltaNeutralContract': TypeDefinition(None, 'DeltaNeutralContract')
+        },
+        Order.__name__: {
+            'algoParams': TypeDefinition(list, 'TagValue'),
+            'conditions': TypeDefinition(list, 'OrderCondition'),
+            'smartComboRoutingParams': TypeDefinition(list, 'TagValue'),
+            'orderComboLegs': TypeDefinition(list, 'OrderComboLeg'),
+            'orderMiscOptions': TypeDefinition(list, 'TagValue'),
+            'usePriceMgmtAlgo': TypeDefinition(None, 'bool')
+        },
+        ContractDescription.__name__: {
+            'derivativeSecTypes': TypeDefinition(list, 'str')
+        },
+        "SoftDollarTiers": {
+            'tiers': TypeDefinition(list, 'SoftDollarTier')
+        }
+    }
+
+    # Override some function signatures for better type hinting
+    OVERRIDDEN_FUNCTION_SIGNATURES = {
+        'softDollarTiers': 'def softDollarTiers(self, reqId: int, tiers: List[SoftDollarTier])'
+    }
