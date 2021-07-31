@@ -83,7 +83,7 @@ The following classes are generated:
     - All top-level classes also have an error code, and an error string to relay errors sent by TWS.
     - The top-level classes have member fields for each of the callbacks.
     - Additional classes are generated that encapsulate the parameters for each of the callbacks
-- `IBAsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
+- `AsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
     - All request methods are asynchronous and declared using `async`
     - Query methods that have a single item response return a `{RequestName}Response`. 
     - Query methods that have a response consisting of a list of items return a `List{RequestName}Response`.
@@ -100,3 +100,4 @@ The following classes are generated:
     - [Post 1 ](https://medium.com/@juri.sarbach/building-my-own-cloud-based-robo-advisor-5588ec1b74d3)
     - [Post 2 Serverless](https://levelup.gitconnected.com/run-gateway-run-algorithmic-trading-the-serverless-way-71634dc1a37)
 - [Guide to Interactive Brokers API Code](https://github.com/corbinbalzan/IBAPICode/blob/master/ExecOrders_Part2/ibProgram1.py)
+- [Build a GraphQL API with Subscriptions using Python, Asyncio and Ariadne](https://www.twilio.com/blog/graphql-api-subscriptions-python-asyncio-ariadne)

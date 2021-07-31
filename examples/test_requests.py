@@ -5,7 +5,7 @@ import logging
 from ibapi import contract
 from ibapi.contract import Contract
 from ib_tws_server.gen.client_responses import *
-from ib_tws_server.gen.ib_asyncio_client import *
+from ib_tws_server.gen.asyncio_client import *
 from typing import Awaitable, Type
 
 logger = logging.getLogger()
@@ -73,7 +73,7 @@ async def test_streaming_request(test: Callable, check_response: Callable, *args
 
     sub.cancel()
 
-async def main_loop(c: IBAsyncioClient):
+async def main_loop(c: AsyncioClient):
     await asyncio.gather(
         test_async_request(c.reqCurrentTime(), lambda c: c is not None and c.currentTime.time > 0),
         test_async_request(c.reqPositions(), lambda c: c is not None and isinstance(c, list)),
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG if args.debug else logging.INFO)
     logging.getLogger("ibapi").setLevel(level=logging.DEBUG if args.debug else logging.ERROR)
 
-    c = IBAsyncioClient()
+    c = AsyncioClient()
     c.start(args.host, args.port, args.client_id)
 
     asyncio.run(main_loop(c))

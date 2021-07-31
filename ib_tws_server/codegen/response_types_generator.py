@@ -43,7 +43,7 @@ from ib_tws_server.ib_imports import *
 from typing import List
 """         )
 
-            for d in ApiDefinitionManager.REQUEST_DEFINITIONS:
+            for d in REQUEST_DEFINITIONS:
                 if d.request_method is None or d.callback_methods is None:
                     continue
                 f.write(top_level_class(d, d.is_subscription))

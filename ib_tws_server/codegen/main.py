@@ -1,7 +1,10 @@
 import argparse
+from ib_tws_server.codegen.asyncio_client_generator import AsyncioWrapperGenerator
 from ib_tws_server.codegen import *
-from ib_tws_server.api_definition import *
+from ib_tws_server.api_definition import * 
+import logging
 import os
+import sys
 
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
@@ -13,12 +16,16 @@ if __name__ == '__main__':
     args  = parser.parse_args()
 
     response_class_fname = os.path.join(args.output_dir, "client_responses.py")
-    ib_asyncio_client_fname = os.path.join(args.output_dir, "ib_asyncio_client.py")
+    asyncio_client_fname = os.path.join(args.output_dir, "asyncio_client.py")
+    asyncio_wrapper_fname = os.path.join(args.output_dir, "asyncio_wrapper.py")
     graphql_schema_fname = os.path.join(args.output_dir, "schema.graphql")
+    graphql_resolver_fname = os.path.join(args.output_dir, "graphql_resolver.py")
 
     os.mkdir(args.output_dir)
 
-    d = ApiDefinitionManager()
+    d = ApiDefinition.verify()
     ResponseTypesGenerator.generate(response_class_fname)
-    IBAsyncioClientGenerator.generate(ib_asyncio_client_fname)
+    AsyncioClientGenerator.generate(asyncio_client_fname)
+    AsyncioWrapperGenerator.generate(asyncio_wrapper_fname)
     GraphQLSchemaGenerator.generate(graphql_schema_fname)
+    GraphQLResolverGenerator.generate(graphql_resolver_fname)

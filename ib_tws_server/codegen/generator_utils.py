@@ -1,6 +1,4 @@
-from os import stat
-from subprocess import call
-from ib_tws_server.api_definition import ApiDefinition, ApiDefinitionManager
+from ib_tws_server.api_definition import *
 import inspect
 import re
 from typing import Callable, List
@@ -10,6 +8,12 @@ class GeneratorUtils:
     def type_name(name: str):
         return name[0].upper() + name[1:]    
     
+    @staticmethod
+    def request_method_name(d: ApiDefinition, u: Callable, is_subscription: bool):
+        if is_subscription and d.subscription_flag_name is not None:
+                return f"{u.__name__}AsSubscription"
+        return u.__name__
+
     @staticmethod
     def response_type(d: ApiDefinition):
         return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
@@ -48,8 +52,8 @@ class GeneratorUtils:
         if u in GeneratorUtils._cached_signatures:
             return GeneratorUtils._cached_signatures[u]
         sig = inspect.signature(u)
-        if u.__name__ in ApiDefinitionManager.OVERRIDDEN_FUNCTION_SIGNATURES:
-            code = ApiDefinitionManager.OVERRIDDEN_FUNCTION_SIGNATURES[u.__name__]
+        if hasattr(OverriddenMethodSignatures, u.__name__):
+            code = getattr(OverriddenMethodSignatures,u.__name__)
         else:
             code = inspect.getsource(u)
         params_raw = GeneratorUtils.params_regex.match(code).groups()[0].split(',')
@@ -100,4 +104,19 @@ class GeneratorUtils:
 
     @staticmethod
     def doc_string(m: callable) -> str:
-        return f'"""{m.__doc__}"""'
+        return f'"""{m.__doc__}"""' if m.__doc__ is not None else '""""""'
+
+    @staticmethod
+    def response_is_list(d: ApiDefinition):
+        return d.has_done_flag or d.done_method is not None
+
+    @staticmethod
+    def bind_method(func: callable) -> str:
+        return f"functools.partial(EClient.{func.__name__},{GeneratorUtils.forward_parameters(func)})"
+
+    @staticmethod
+    def type_to_type_name_str(o: any) -> str:
+        if hasattr(o, '__name__'):
+            return getattr(o, '__name__')
+        else:
+            return str(o)

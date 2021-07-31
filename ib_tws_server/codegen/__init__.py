@@ -1,3 +1,5 @@
-from ib_tws_server.codegen.ib_asyncio_client_generator import IBAsyncioClientGenerator
+from ib_tws_server.codegen.asyncio_client_generator import AsyncioClientGenerator
 from ib_tws_server.codegen.response_types_generator import ResponseTypesGenerator
 from ib_tws_server.codegen.graphql_schema_generator import GraphQLSchemaGenerator
+from ib_tws_server.codegen.graphql_resolver_generator import GraphQLResolverGenerator
+
