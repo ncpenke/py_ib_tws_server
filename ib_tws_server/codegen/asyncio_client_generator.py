@@ -6,14 +6,6 @@ import inspect
 def forward_method_parameters_dict_style(params: List[inspect.Parameter]) -> str:
     return ",".join([ f"{v.name} = {v.name}" for v in params ])
 
-def request_return_type(d: ApiDefinition, is_subscription: bool):
-    if is_subscription:
-        return "Subscription"
-    elif (d.callback_methods is not None):
-        return GeneratorUtils.response_type(d)
-    else:
-        return "None"
-
 def streaming_callback_type(d: ApiDefinition):
     return f"Callable[[{GeneratorUtils.streaming_type(d)}],None]"
 
@@ -65,7 +57,7 @@ class AsyncioClientGenerator:
             return f"{current_subscription}= Subscription(streaming_cb, self.__{d.cancel_method.__name__}, {GeneratorUtils.req_id_param_name(d.request_method)}, asyncio.get_running_loop())"
 
         def async_request_method(d: ApiDefinition, is_subscription: bool):
-            return_type = f"Union[{request_return_type(d, is_subscription)},Error]"
+            return_type = f"Union[{GeneratorUtils.request_return_type(d, is_subscription)},Error]"
             signature = GeneratorUtils.signature(d.request_method).replace(return_annotation=return_type)
             params = list(signature.parameters.values())
             method_name = GeneratorUtils.request_method_name(d, d.request_method, is_subscription)
@@ -97,7 +89,7 @@ class AsyncioClientGenerator:
         {GeneratorUtils.doc_string(d.request_method)}
         loop = asyncio.get_running_loop()
         future = loop.create_future()
-        def cb(res: {request_return_type(d, is_subscription)}):
+        def cb(res: {GeneratorUtils.request_return_type(d, is_subscription)}):
             loop.call_soon_threadsafe(future.set_result, res)
         {init_request_id(d, d.request_method)}
         with self._lock:
@@ -228,6 +220,7 @@ class AsyncioWrapperGenerator:
                 req_state.response.append({response_instance(d, m)})"""
             else:
                 return f"""
+            if {request_id(d, m)} in self._req_state:
                 req_state = {current_request_state(d, m)}
                 if req_state is not None:
                     req_state.response = {response_instance(d, m)}"""
@@ -337,8 +330,9 @@ class AsyncioWrapper(EWrapper):
         if reqId is not None:
             with self._lock:
                 if reqId in self._req_state:
+                    s = self._req_state[reqId]
                     cb = s.cb
-                    del sel.f_req_state[id]
+                    del self._req_state[reqId]
         if cb is not None:
             cb(Error(errorString, errorCode))
         else:

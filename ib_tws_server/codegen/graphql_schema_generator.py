@@ -1,6 +1,7 @@
 from ib_tws_server.api_definition import *
 from ib_tws_server.codegen.generator_utils import *
 from ib_tws_server.ib_imports import *
+from ib_tws_server.util.type_util import *
 import logging
 import os
 import re
@@ -25,22 +26,6 @@ class GraphQLSchemaGenerator:
 
         # TODO: revisit
         enums.add('OrderCondition')
-
-        def find_global_sym(s: str):
-            syms = s.split(".")
-            cur = globals()
-            for s in syms:
-                if isinstance(cur, dict):
-                    if s in cur:
-                        return cur[s]
-                    else:
-                        return None
-                else:
-                    if hasattr(cur,s):
-                        cur = getattr(cur,s)
-                    else:
-                        return None
-            return cur
 
         def add_type_for_processing(s: str):
             if s in builtin_type_mappings or s in processed_types:
@@ -91,6 +76,8 @@ class GraphQLSchemaGenerator:
                     if isinstance(rt, Enum):
                         add_enum(t)
                         return t
+                    elif t in scalars or t in enums:
+                        return t
                     elif (rt.__name__ != t):
                         add_scalar(t, f"Type alias", False)
                         return t
@@ -100,15 +87,15 @@ class GraphQLSchemaGenerator:
                 else:
                     raise RuntimeError(f"Could not determine type for {t}")
 
-        def object_member_type(obj:object, method_name: str, val: any):
+        def object_member_type(obj:object, member_name: str, val: any):
             if hasattr(OverriddenMemberTypeHints, obj.__class__.__name__):
                 hints = getattr(OverriddenMemberTypeHints, obj.__class__.__name__)
-                if hasattr(hints,method_name):
-                    return graphql_type(GeneratorUtils.type_to_type_name_str(getattr(hints, method_name)))
+                if hasattr(hints,member_name):
+                    return graphql_type(GeneratorUtils.type_to_type_name_str(getattr(hints, member_name)))
             if val is not None:
                 return graphql_type(type(val).__name__)
             else:
-                raise RuntimeError(f"Could not determine type {obj.__class__.__name__} for member {method_name}")
+                raise RuntimeError(f"Could not determine type {obj.__class__.__name__} for member {member_name}")
 
         def generate_global_type(type_name: str):
             if type_name in processed_types or type_name in enums:
@@ -116,12 +103,17 @@ class GraphQLSchemaGenerator:
 
             logger.log(logging.DEBUG, f"Generating {type_name}")
 
-            obj = globals()[type_name]()
+            cls = globals()[type_name]
+            cls_dict = cls.__dict__
             processed_types.add(type_name)
-            members = [ (n, object_member_type(obj, n, t)) for n,t in inspect.getmembers(obj) if not n.startswith("__")  ]
+            if ('__annotations__' in cls_dict):
+                members = [ (k,v) for k,v in cls_dict['__annotations__']  ]
+            else:
+                obj = cls()
+                members = [ (n, object_member_type(obj, n, t)) for n,t in inspect.getmembers(obj) if not n.startswith("__")  ]
             for m,t in members:
                 if t is None:
-                    add_scalar(obj.__class__.__name__, f"Could not find type for member '{m}'' for class '{obj.__class__.__name__}'", True)
+                    add_scalar(cls.__name__, f"Could not find type for member '{m}'' for class '{cls.__name__}'", True)
                     return ""
 
             code = f"""
@@ -129,7 +121,7 @@ class GraphQLSchemaGenerator:
 {'input' if processing_inputs else 'type'} {obj.__class__.__name__}{'Input' if processing_inputs else ''} {{"""
             for p,t in members:
                 code += f"""
-    {p}: {graphql_type(t.__class__.__name__)}!"""
+    {p}: {t}"""
             code = code + """
 }"""
             return code
@@ -141,7 +133,7 @@ class GraphQLSchemaGenerator:
 
             logger.log(logging.DEBUG, f"Generating {type_name}")
             params = GeneratorUtils.data_class_members(d, [m], d.is_subscription)
-                
+
             for m in params:
                 f = graphql_type(m.annotation)
                 if f is None:
@@ -154,10 +146,10 @@ class GraphQLSchemaGenerator:
 type {type_name} {{"""
             for p in params:
                 code += f"""
-    {p.name}: {graphql_type(p.annotation)}!"""
-                code = code + """
+    {p.name}: {graphql_type(p.annotation)}"""
+            code += """
 }"""
-                return code          
+            return code          
 
         def generate_enum(e: str):
             code = f""" 
@@ -181,10 +173,20 @@ enum {e} {{"""
 type {type_name} {{"""
             for m in d.callback_methods:
                 code += f"""
-    {m.__name__}: {GeneratorUtils.callback_type(m)}!"""
+    {m.__name__}: {GeneratorUtils.callback_type(m)}"""
             code = code + """
 }"""
             return code   
+
+        def graphql_request_return_type(t: str):
+            m = container_re.match(t)
+            if m is not None and len(m.groups()) == 2:
+                if m.group(1) == "List":
+                    return f"[{m.group(2)}]"
+                else:
+                    raise RuntimeError(f"Unexpected container type {t}")
+            else:
+                return t
 
         def generate_query_or_subscription(d: ApiDefinition, is_subscription: bool):
             name = GeneratorUtils.request_method_name(d, d.request_method, is_subscription)
@@ -197,7 +199,7 @@ type {type_name} {{"""
             member_str = ",".join(members)
             member_sig =  "" if len(member_str) == 0 else f"({member_str})"
             return f"""
-    {name}{member_sig}: {GeneratorUtils.top_level_type(d, is_subscription)}"""
+    {name}{member_sig}: {graphql_request_return_type(GeneratorUtils.request_return_type(d, is_subscription))}"""
 
         with open(filename, "w") as f:
             for d in REQUEST_DEFINITIONS:

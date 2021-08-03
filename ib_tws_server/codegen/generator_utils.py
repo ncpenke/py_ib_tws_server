@@ -1,3 +1,4 @@
+from os import replace
 from ib_tws_server.api_definition import *
 import inspect
 import re
@@ -28,7 +29,7 @@ class GeneratorUtils:
 
     @staticmethod
     def callback_type(u: Callable):
-        return GeneratorUtils.type_name(u.__name__)
+        return f"{GeneratorUtils.type_name(u.__name__)}Callback"
 
     @staticmethod
     def req_id_param_name(u: Callable):
@@ -120,3 +121,22 @@ class GeneratorUtils:
             return getattr(o, '__name__')
         else:
             return str(o)
+
+    @staticmethod
+    def query_callback_response_params(d: ApiDefinition, u: Callable) -> List[inspect.Parameter]:
+        params = GeneratorUtils.data_class_members(d, [u], False)
+        if (d.has_done_flag or d.done_method is not None):
+            return [ p.replace(annotation=f"List[{p.annotation}]") for p in params]
+        return params
+
+    @staticmethod
+    def request_return_type(d: ApiDefinition, is_subscription: bool):
+        if is_subscription:
+            return "Subscription"
+        elif (d.callback_methods is not None):
+            if d.done_method is not None or d.has_done_flag:
+                return f"List[{GeneratorUtils.response_type(d)}]"
+            else:
+                return GeneratorUtils.response_type(d)
+        else:
+            return "None"

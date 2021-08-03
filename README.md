@@ -95,6 +95,7 @@ The following classes are generated:
 
 # Useful References
 
+- [TWS API](https://interactivebrokers.github.io/tws-api/index.html)
 - [ib_insync library](https://github.com/erdewit/ib_insync/tree/master/ib_insync)
 - Posts by Juri Sarbach to deploy TWS as a microservice:
     - [Post 1 ](https://medium.com/@juri.sarbach/building-my-own-cloud-based-robo-advisor-5588ec1b74d3)

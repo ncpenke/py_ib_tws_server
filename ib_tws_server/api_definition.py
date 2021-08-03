@@ -324,6 +324,8 @@ class OverriddenMemberTypeHints:
     class Contract: 
         comboLegs = List[ComboLeg]
         deltaNeutralContract = DeltaNeutralContract
+    class ContractDetails:
+        secIdList = List[str]
     class ContractDescription:
         derivativeSecTypes = List[str]
     class SoftDollarTiers:

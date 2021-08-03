@@ -6,9 +6,7 @@ import logging
 import os
 import sys
 
-logger = logging.getLogger()
-logger.setLevel(logging.ERROR)
-logging.basicConfig(stream=sys.stdout)
+logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate wrapper classes from the request definitions")

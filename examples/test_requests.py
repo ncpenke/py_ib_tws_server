@@ -4,6 +4,7 @@ import json
 import logging
 from ibapi import contract
 from ibapi.contract import Contract
+from ib_tws_server.asyncio.error import Error
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_client import *
 from typing import Awaitable, Type
@@ -25,11 +26,27 @@ def contract_for_symbol(sym: str):
     c.exchange = "SMART"
     return c
 
+def option_for_symbol(sym: str, strike: float):
+    c = Contract()
+    c.symbol = sym
+    c.secType = "OPT"
+    c.currency = "USD"
+    c.exchange = "SMART"
+    c.lastTradeDateOrContractMonth = "20210820"
+    c.strike = 3300
+    c.right = "C"
+    c.multiplier = "100"
+    return c
+
 def log_result(p: bool, res: any, req: any):
     if (p):
         logger.log(logging.INFO, f"SUCCESS {req.__name__} returned {res.__class__.__name__}")
     else:
-        logger.log(logging.INFO, f"FAILED  {req.__name__} returned {res.__class__.__name__}")
+        if isinstance(res, Error):
+            err: Error = res
+            logger.log(logging.INFO, f"FAILED  {req.__name__} returned Error reason: {err.reason} code: {err.code}")
+        else:
+            logger.log(logging.INFO, f"FAILED  {req.__name__} returned {res.__class__.__name__}")
 
 async def test_async_request(test: Awaitable, check_response: Callable[[object],bool]):
     res = await test
@@ -80,6 +97,7 @@ async def main_loop(c: AsyncioClient):
         test_async_request(c.reqManagedAccts(), lambda c: c is not None and len(c.managedAccounts.accountsList) > 0),
         test_async_request(c.reqFundamentalData(contract_for_symbol("AMZN"), "ReportSnapshot", None), lambda c: True),
         test_async_request(c.reqHistoricalData(contract_for_symbol("AMZN"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, list)),
+        test_async_request(c.reqContractDetails(option_for_symbol("AMZN", 3300)), lambda x: x is not None and isinstance(x, list)),
         test_streaming_request(c.reqTickByTickData, lambda c: c is not None and isinstance(c, ReqTickByTickDataUpdate), contract_for_symbol("AMZN"), "BidAsk", 0, False),
         test_streaming_request(c.reqHistoricalDataAsSubscription, lambda c: c is not None and isinstance(c, ReqHistoricalDataUpdate), contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ")
     )

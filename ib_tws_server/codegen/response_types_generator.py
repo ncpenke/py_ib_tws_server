@@ -14,7 +14,7 @@ class ResponseTypesGenerator:
             return "        ".join([f"object.__setattr__(self, '{p.name}', {p.name}){os.linesep}" for p in params])
 
         def callback_class(d: ApiDefinition, u: Callable):
-            params = GeneratorUtils.data_class_members(d, [u], d.is_subscription)
+            params = GeneratorUtils.data_class_members(d, [u], False)
             ret = f"""
 @dataclass(frozen=True)
 class { GeneratorUtils.callback_type(u) }:
