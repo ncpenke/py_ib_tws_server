@@ -1,5 +1,6 @@
-from os import replace
+from os import replace, stat
 from ib_tws_server.api_definition import *
+from ib_tws_server.util.type_util import full_type_name_for_annotation
 import inspect
 import re
 from typing import Callable, List
@@ -16,20 +17,47 @@ class GeneratorUtils:
         return u.__name__
 
     @staticmethod
-    def response_type(d: ApiDefinition):
-        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
+    def callback_types(d: ApiDefinition) -> List[str]:
+        annotations = set()
+        for e in d.callback_methods:
+            annotation,is_wrapper=GeneratorUtils.callback_type(d, e)
+            annotations.add(annotation)
+        return list(annotations)        
 
     @staticmethod
-    def streaming_type(d: ApiDefinition):
-        return f"{GeneratorUtils.type_name(d.request_method.__name__)}Update"
+    def response_type(d: ApiDefinition, is_subscription: bool):
+        callback_types = GeneratorUtils.callback_types(d)
+        if len(callback_types) > 1:
+            response_type = f"Union[{','.join([a for a in callback_types])}]"""
+        else:
+            response_type = f"{callback_types[0]}"
+
+        if not is_subscription and GeneratorUtils.response_is_list(d):
+            response_type = f"List[{response_type}]"
+        return response_type
 
     @staticmethod
-    def top_level_type(d: ApiDefinition, is_subscription: bool):
-        return GeneratorUtils.streaming_type(d) if is_subscription else GeneratorUtils.response_type(d)
+    def get_num_params(u: Callable):
+        return len(GeneratorUtils.signature(u).parameters.values())
 
     @staticmethod
-    def callback_type(u: Callable):
-        return f"{GeneratorUtils.type_name(u.__name__)}Callback"
+    def callback_type(d: ApiDefinition, u: Callable):
+        params = list(GeneratorUtils.signature(u).parameters.values())
+        single_member = None
+        all_cbs_have_same_parameter_count = True
+        for cb in d.callback_methods:
+            if GeneratorUtils.get_num_params(cb) != len(params):
+                all_cbs_have_same_parameter_count = False
+                break
+
+        if all_cbs_have_same_parameter_count:
+            if len(params) == 2:
+                single_member = params[1]
+            elif len(params) == 3 and d.uses_req_id:
+                single_member = params[2]
+        if single_member is not None:
+            return (full_type_name_for_annotation(single_member.annotation, ibapi), False)
+        return (f"{GeneratorUtils.type_name(u.__name__)}", True)
 
     @staticmethod
     def req_id_param_name(u: Callable):
@@ -53,22 +81,29 @@ class GeneratorUtils:
         if u in GeneratorUtils._cached_signatures:
             return GeneratorUtils._cached_signatures[u]
         sig = inspect.signature(u)
-        if hasattr(OverriddenMethodSignatures, u.__name__):
-            code = getattr(OverriddenMethodSignatures,u.__name__)
+        if u.__name__ in OVERRIDDEN_METHOD_SIGNATURES:
+            code = OVERRIDDEN_METHOD_SIGNATURES[u.__name__]
         else:
             code = inspect.getsource(u)
         params_raw = GeneratorUtils.params_regex.match(code).groups()[0].split(',')
         sig_params = list(sig.parameters.values())
-        i = 0
+        index = 0
         if len(sig_params) != len(params_raw):
             raise RuntimeError(f"Error in parameter parsing for method {sig}")
         for sp,raw in zip(sig_params, params_raw):
             raw = [ r.strip() for r in raw.split(":") ]
             if (raw[0] != sp.name):
                 raise RuntimeError(f"Error in parameter parsing for method {sig} {raw[0]} {sp.name}")
-            if (len(raw) > 1):
-                sig_params[i] = sp.replace(annotation=raw[1])
-            i += 1
+            if raw[0] != "self":
+                if len(raw) != 2:
+                    raise RuntimeError(f"Error method missing annotation {sig}")
+                annotation = raw[1]
+                if annotation in OVERRIDDEN_TYPE_ALIASES:
+                    annotation = OVERRIDDEN_TYPE_ALIASES[annotation]
+                else:
+                    annotation = full_type_name_for_annotation(annotation, ibapi)
+                sig_params[index] = sp.replace(annotation=annotation)
+            index += 1
         sig = sig.replace(parameters=sig_params)
         GeneratorUtils._cached_signatures[u] = sig
         return sig
@@ -134,9 +169,10 @@ class GeneratorUtils:
         if is_subscription:
             return "Subscription"
         elif (d.callback_methods is not None):
-            if d.done_method is not None or d.has_done_flag:
-                return f"List[{GeneratorUtils.response_type(d)}]"
-            else:
-                return GeneratorUtils.response_type(d)
+            return GeneratorUtils.response_type(d, is_subscription)
         else:
             return "None"
+
+    @staticmethod
+    def unqualified_type_name(s: str):
+        return s.split(".")[-1]

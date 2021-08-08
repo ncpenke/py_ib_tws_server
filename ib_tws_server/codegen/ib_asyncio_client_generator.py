@@ -24,10 +24,10 @@ def subscription_member_name(d: ApiDefinition):
     return f"_subscriptions"       
 
 def response_instance(d: ApiDefinition, m: Callable):
-    return f"{GeneratorUtils.response_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))}))"
+    return f"{GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))}"
 
 def streaming_instance(d: ApiDefinition, m: Callable):
-    return f"{GeneratorUtils.streaming_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))}))"
+    return f"{GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))}"
 
 def request_id(d: ApiDefinition, m: Callable):
     if not d.uses_req_id:
@@ -184,18 +184,6 @@ class AsyncioClient():
         thread.start()
         setattr(thread, "_thread", thread)
 
-    def error(self, reqId:int, errorCode:int, errorString:str):
-        logger.error(f'Response error {{reqId}} {{errorCode}} {{errorString}}')
-        cb:Callable = None
-        with self._lock:
-            if reqId in self._req_state:
-                cb = self._req_state[reqId].cb
-                del self._req_state[reqId]
-            if reqId in self._subscriptions:
-                del self._subscriptions[reqId]
-        if cb is not None:
-            cb(None)
-
     def active_request_count(self):
         with self._lock:
             return len(self._req_state) 
@@ -224,8 +212,8 @@ class AsyncioWrapperGenerator:
             if {request_id(d, m)} in self._req_state:
                 req_state = {current_request_state(d, m)}
                 if req_state.response is None:
-                    req_state.response = [] 
-                req_state.response.append({response_instance(d, m)})"""
+                    req_state.response = {GeneratorUtils.response_type(d)}
+                req_state.response.response.append({response_instance(d, m)})"""
             else:
                 return f"""
                 req_state = {current_request_state(d, m)}
@@ -332,12 +320,13 @@ class AsyncioWrapper(EWrapper):
         if cb is not None:
             cb(res)
 
-    def error(self, reqId: TickerId, errorCode: int, errorString: str):
+    def error(self, reqId: int|str, errorCode: int, errorString: str):
         cb = None
         if reqId is not None:
             with self._lock:
                 if reqId in self._req_state:
                     cb = s.cb
+                    s.
                     del sel.f_req_state[id]
         if cb is not None:
             cb(Error(errorString, errorCode))

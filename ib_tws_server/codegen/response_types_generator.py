@@ -1,6 +1,7 @@
 from inspect import Parameter
 from ib_tws_server.api_definition import *
 from ib_tws_server.codegen.generator_utils import *
+from ib_tws_server.util.type_util import *
 import os
 from typing import List
 
@@ -15,24 +16,15 @@ class ResponseTypesGenerator:
 
         def callback_class(d: ApiDefinition, u: Callable):
             params = GeneratorUtils.data_class_members(d, [u], False)
+            cb_type,cb_type_is_wrapper = GeneratorUtils.callback_type(d, u)
+            if not cb_type_is_wrapper:
+                return ""
             ret = f"""
 @dataclass(frozen=True)
-class { GeneratorUtils.callback_type(u) }:
+class { cb_type }:
     def __init__(self, {default_params(params)}):
         {init_members(params)}"""
             ret += os.linesep.join([f"    {p}" for p in params])
-            ret += os.linesep
-            return ret
-
-        def top_level_class(d: ApiDefinition, is_subscription: bool) -> str:
-           # params = GeneratorUtils.data_class_members(d, d.callback_methods, is_subscription)
-            members: List[Parameter] = [ Parameter(name=e.__name__, annotation=GeneratorUtils.callback_type(e), kind=Parameter.POSITIONAL_OR_KEYWORD) for e in d.callback_methods ]
-            ret = f"""
-@dataclass(frozen=True)
-class { GeneratorUtils.top_level_type(d, is_subscription) }:
-    def __init__(self, {default_params(members)}):
-        {init_members(members)}"""
-            ret += os.linesep.join([f"    {p}" for p in members])
             ret += os.linesep
             return ret
 
@@ -40,14 +32,19 @@ class { GeneratorUtils.top_level_type(d, is_subscription) }:
             f.write("""
 from dataclasses import dataclass
 from ib_tws_server.ib_imports import *
-from typing import List
-"""         )
+from typing import Dict, List, Union
+
+class Error:
+    reason: str
+    code: int
+
+    def __init__(self, reason: str, code: int):
+        self.reason = reason
+        self.code = code
+""")
 
             for d in REQUEST_DEFINITIONS:
                 if d.request_method is None or d.callback_methods is None:
                     continue
-                f.write(top_level_class(d, d.is_subscription))
-                if d.subscription_flag_name is not None:
-                    f.write(top_level_class(d, True))
                 for u in d.callback_methods:
                     f.write(callback_class(d, u))

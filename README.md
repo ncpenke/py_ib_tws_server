@@ -8,7 +8,7 @@ Testing has been performed with TWS API 9.85.1.
 
 # Examples
 
-- [Example of using the asyncio API](./examples/test_requests.py)
+- [Example of using the asyncio API](./examples/asyncio_client_checks.py)
 
 # TWS API
 
@@ -77,12 +77,11 @@ Classes are generated in the `ib_tws_server/gen` directory as part of the build.
 
 The following classes are generated:
 - Callback Classes:
-    - A top-level class is generated for every request that has one or more callbacks.
+    - A top-level class is generated for every request that has one or more callbacks that return more than one value.
     - For callbacks for queries the response class has the name `{RequestName}Response`
     - For callbacks for subscriptions, the generated class has the name `{RequestName}Update`
-    - All top-level classes also have an error code, and an error string to relay errors sent by TWS.
     - The top-level classes have member fields for each of the callbacks.
-    - Additional classes are generated that encapsulate the parameters for each of the callbacks
+    - Additional classes are generated that encapsulate the parameters for each of the callbacks when the callbacks return one or more parameters
 - `AsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
     - All request methods are asynchronous and declared using `async`
     - Query methods that have a single item response return a `{RequestName}Response`. 
@@ -91,6 +90,7 @@ The following classes are generated:
     - Request ids of the original TWS API are implicitly managed. 
     - Currently only subscriptions can be cancelled. Even though TWS API allows cancelling queries with multiple responses this is not exposed as part of the API. 
 - Other improvements
+    - Errors from TWS are propagated via exceptions
     - To avoid blocking the asyncio running loop, an `IBWriter` class to send messages to TWS in a separate thread.
 
 # Useful References

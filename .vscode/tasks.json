@@ -2,6 +2,21 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "test",
+            "type": "shell",
+            "command": "pytest .",
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                },
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
             "label": "codegen",
             "type": "shell",
             "command": "rm -rf ib_tws_server/gen && PYTHONPATH=. python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
@@ -17,9 +32,9 @@
             }
         },
         {
-            "label": "test_requests",
+            "label": "asyncio_client_checks",
             "type": "shell",
-            "command": "python3 examples/test_requests.py",
+            "command": "python3 examples/asyncio_client_checks.py",
             "group": {
                 "kind": "test",
                 "isDefault": true
@@ -32,9 +47,9 @@
             }
         },
         {
-            "label": "test_requests_debug",
+            "label": "asyncio_client_checks_debug",
             "type": "shell",
-            "command": "python3 examples/test_requests.py -d",
+            "command": "python3 examples/asyncio_client_checks.py -d",
             "group": {
                 "kind": "test",
                 "isDefault": true

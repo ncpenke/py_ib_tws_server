@@ -3,11 +3,13 @@ from datetime import datetime, timedelta
 import json
 import logging
 from ibapi import contract
+from ibapi.common import BarData
 from ibapi.contract import Contract
 from ib_tws_server.asyncio.error import Error
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_client import *
-from typing import Awaitable, Type
+from typing import Awaitable
+import sys
 
 logger = logging.getLogger()
 
@@ -92,14 +94,14 @@ async def test_streaming_request(test: Callable, check_response: Callable, *args
 
 async def main_loop(c: AsyncioClient):
     await asyncio.gather(
-        test_async_request(c.reqCurrentTime(), lambda c: c is not None and c.currentTime.time > 0),
+        test_async_request(c.reqCurrentTime(), lambda c: c is not None and isinstance(c, int) and c > 0),
         test_async_request(c.reqPositions(), lambda c: c is not None and isinstance(c, list)),
-        test_async_request(c.reqManagedAccts(), lambda c: c is not None and len(c.managedAccounts.accountsList) > 0),
-        test_async_request(c.reqFundamentalData(contract_for_symbol("AMZN"), "ReportSnapshot", None), lambda c: True),
+        test_async_request(c.reqManagedAccts(), lambda c: c is not None and isinstance(c, str) and len(c) > 0),
+        test_async_request(c.reqFundamentalData(contract_for_symbol("AMZN"), "ReportSnapshot", None), lambda c: c is not None and isinstance(c, str) and len(c) > 0),
         test_async_request(c.reqHistoricalData(contract_for_symbol("AMZN"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, list)),
         test_async_request(c.reqContractDetails(option_for_symbol("AMZN", 3300)), lambda x: x is not None and isinstance(x, list)),
-        test_streaming_request(c.reqTickByTickData, lambda c: c is not None and isinstance(c, ReqTickByTickDataUpdate), contract_for_symbol("AMZN"), "BidAsk", 0, False),
-        test_streaming_request(c.reqHistoricalDataAsSubscription, lambda c: c is not None and isinstance(c, ReqHistoricalDataUpdate), contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ")
+        test_streaming_request(c.reqTickByTickData, lambda c: c is not None and isinstance(c, TickByTickBidAsk), contract_for_symbol("AMZN"), "BidAsk", 0, False),
+        test_streaming_request(c.reqHistoricalDataAsSubscription, lambda c: c is not None and isinstance(c, BarData), contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ")
     )
 
     if c.active_request_count() > 0:

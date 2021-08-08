@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing_extensions import TypeAlias
+from ibapi.client import EClient
+from ibapi.wrapper import EWrapper
 from ib_tws_server.ib_imports import *
 import inspect
 import logging
@@ -286,51 +287,60 @@ REQUEST_DEFINITIONS: List[ApiDefinition] = [
     ApiDefinition(request_method=None, callback_methods=[EWrapper.orderBound, EWrapper.orderStatus,EWrapper.openOrder,EWrapper.openOrderEnd])
 ]
 
-class OverriddenTypeAliases:
-    """Missing or incomplete type aliases"""
-    SetOfString = Set[str]
-    SetOfFloat = Set[float]
-    ListOfOrder = List[Order]
-    ListOfFamilyCode = List[FamilyCode]
-    ListOfContractDescription = List[ContractDescription]
-    ListOfDepthExchanges = List[DepthMktDataDescription]
-    ListOfNewsProviders = List[NewsProvider]
-    HistogramDataList = List[HistogramData]
-    ListOfPriceIncrements = List[PriceIncrement]
-    ListOfHistoricalTick = List[HistoricalTick]
-    ListOfHistoricalTickBidAsk = List[HistoricalTickBidAsk]
-    ListOfHistoricalTickLast = List[HistoricalTickLast]
-    TagValueList = List[TagValue]
-    SoftDollarTierList = List[SoftDollarTier]
-    SmartComponentMap = Dict[str, SmartComponent]
-    OrderId = int
+"""Missing or incomplete type aliases"""
+OVERRIDDEN_TYPE_ALIASES = {
+    'SetOfString': 'Set[str]',
+    'SetOfFloat': 'Set[float]',
+    'ListOfOrder': 'List[ibapi.order.Order]',
+    'ListOfFamilyCode': 'List[ibapi.common.FamilyCode]',
+    'ListOfContractDescription': 'List[ibapi.contract.ContractDescription]',
+    'ListOfDepthExchanges': 'List[ibapi.common.DepthMktDataDescription]',
+    'ListOfNewsProviders': 'List[ibapi.common.NewsProvider]',
+    'HistogramDataList': 'List[ibapi.common.HistogramData]',
+    'ListOfPriceIncrements': 'List[ibapi.common.PriceIncrement]',
+    'ListOfHistoricalTick': 'List[ibapi.common.HistoricalTick]',
+    'ListOfHistoricalTickBidAsk': 'List[ibapi.common.HistoricalTickBidAsk]',
+    'ListOfHistoricalTickLast': 'List[ibapi.common.HistoricalTickLast]',
+    'TagValueList': 'List[ibapi.tag_value.TagValue]',
+    'SoftDollarTierList': 'List[ibapi.order.SoftDollarTier]',
+    'SmartComponentMap': 'Dict[str, ibapi.common.SmartComponent]',
+    'OrderId': 'int'
+}
 
-class EnumAliases:
-    """The types that are aliased by enums. This is used to generate conversion methods
-    to/from the enum type. These are strings to get the original class from globals"""
-    TickType = 'TickTypeEnum'
-    FaDataType = 'FaDataTypeEnum'
-    MarketDataType = 'MarketDataTypeEnum'
+"""The types that are aliased by enums. This is used to generate conversion methods
+to/from the enum type. These are strings to get the original class from globals"""
+ENUM_ALIASES = {
+    'TickType': 'TickTypeEnum',
+    'FaDataType': 'FaDataTypeEnum',
+    'MarketDataType': 'MarketDataTypeEnum',
+}
 
-class OverriddenMemberTypeHints:
-    """Missing or incorrect hints for members"""
-    class Order:
-        algoParams = OverriddenTypeAliases.TagValueList
-        conditions = List[OrderCondition]
-        orderComboLegs = List[OrderComboLeg]
-        orderMiscOptions = List[TagValue]
-        smartComboRoutingParams = OverriddenTypeAliases.TagValueList
-        usePriceMgmtAlgo = bool
-    class Contract: 
-        comboLegs = List[ComboLeg]
-        deltaNeutralContract = DeltaNeutralContract
-    class ContractDetails:
-        secIdList = List[str]
-    class ContractDescription:
-        derivativeSecTypes = List[str]
-    class SoftDollarTiers:
-        tiers = List[SoftDollarTier]
+"""Missing or incorrect hints for members"""
+OVERRIDDEN_MEMBER_TYPE_HINTS = {
+    'Order': {
+        'algoParams': OVERRIDDEN_TYPE_ALIASES['TagValueList'],
+        'conditions': 'List[ibapi.order_condition.OrderCondition]',
+        'orderComboLegs': 'List[ibapi.order.OrderComboLeg]',
+        'orderMiscOptions': 'List[ibapi.tag_value.TagValue]',
+        'smartComboRoutingParams': OVERRIDDEN_TYPE_ALIASES['TagValueList'],
+        'usePriceMgmtAlgo': 'bool'
+    },
+    'Contract': {
+        'comboLegs': 'List[ibapi.order.OrderComboLeg]',
+        'deltaNeutralContract': 'ibapi.contract.DeltaNeutralContract'
+    },
+    'ContractDetails': {
+        'secIdList': 'List[str]'
+    },
+    'ContractDescription': {
+        'derivativeSecTypes': 'List[str]'
+    },
+    'SoftDollarTiers': {
+        'tiers': 'List[ibapi.softdollartier.SoftDollarTier]'
+    }
+}
 
-class OverriddenMethodSignatures:
-    """Missing or incorrect method signatures"""
-    softDollarTiers = 'def softDollarTiers(self, reqId: int, tiers: SoftDollarTierList)'
+"""Missing or incorrect method signatures"""
+OVERRIDDEN_METHOD_SIGNATURES = {
+    'softDollarTiers': 'def softDollarTiers(self, reqId: int, tiers: SoftDollarTierList)'
+}

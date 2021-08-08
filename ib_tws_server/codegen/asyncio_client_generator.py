@@ -6,9 +6,6 @@ import inspect
 def forward_method_parameters_dict_style(params: List[inspect.Parameter]) -> str:
     return ",".join([ f"{v.name} = {v.name}" for v in params ])
 
-def streaming_callback_type(d: ApiDefinition):
-    return f"Callable[[{GeneratorUtils.streaming_type(d)}],None]"
-
 def request_state_member_name(d: ApiDefinition):
     return f"_req_state"       
 
@@ -16,10 +13,18 @@ def subscription_member_name(d: ApiDefinition):
     return f"_subscriptions"       
 
 def response_instance(d: ApiDefinition, m: Callable):
-    return f"{GeneratorUtils.response_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))}))"
+    callback_type,is_wrapper = GeneratorUtils.callback_type(d, m)
+    if is_wrapper:
+        return f"{callback_type}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], False))})"
+    else:
+        return GeneratorUtils.data_class_members(d, [m], False)[0].name
 
 def streaming_instance(d: ApiDefinition, m: Callable):
-    return f"{GeneratorUtils.streaming_type(d)}({m.__name__} = {GeneratorUtils.callback_type(m)}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))}))"
+    callback_type,is_wrapper = GeneratorUtils.callback_type(d, m)
+    if is_wrapper:
+        return f"{callback_type}({forward_method_parameters_dict_style(GeneratorUtils.data_class_members(d, [m], True))})"
+    else:
+        return GeneratorUtils.data_class_members(d, [m], False)[0].name
 
 def request_id(d: ApiDefinition, m: Callable):
     if not d.uses_req_id:
@@ -57,7 +62,7 @@ class AsyncioClientGenerator:
             return f"{current_subscription}= Subscription(streaming_cb, self.__{d.cancel_method.__name__}, {GeneratorUtils.req_id_param_name(d.request_method)}, asyncio.get_running_loop())"
 
         def async_request_method(d: ApiDefinition, is_subscription: bool):
-            return_type = f"Union[{GeneratorUtils.request_return_type(d, is_subscription)},Error]"
+            return_type = f"{GeneratorUtils.request_return_type(d, is_subscription)}"
             signature = GeneratorUtils.signature(d.request_method).replace(return_annotation=return_type)
             params = list(signature.parameters.values())
             method_name = GeneratorUtils.request_method_name(d, d.request_method, is_subscription)
@@ -66,7 +71,7 @@ class AsyncioClientGenerator:
             if d.uses_req_id:
                 del params[1]
             if is_subscription:
-                params.insert(1, inspect.Parameter('streaming_cb', kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=streaming_callback_type(d)))
+                params.insert(1, inspect.Parameter('streaming_cb', kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=f"Callable[[{GeneratorUtils.response_type(d, True)}],None]"))
             if d.subscription_flag_name is not None:
                 params = [ p for p in params if p.name != d.subscription_flag_name ]
             signature = signature.replace(parameters=params)
@@ -119,6 +124,7 @@ class AsyncioClientGenerator:
 import asyncio
 import functools
 from collections import defaultdict
+from ibapi.client import EClient
 from ib_tws_server.asyncio.error import Error
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
@@ -126,7 +132,7 @@ from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_wrapper import *
 from ib_tws_server.ib_imports import *
 from threading import Lock, Thread
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple
 
 class AsyncioClient():
     _lock: Lock
@@ -176,18 +182,6 @@ class AsyncioClient():
         thread.start()
         setattr(thread, "_thread", thread)
 
-    def error(self, reqId:int, errorCode:int, errorString:str):
-        logger.error(f'Response error {{reqId}} {{errorCode}} {{errorString}}')
-        cb:Callable = None
-        with self._lock:
-            if reqId in self._req_state:
-                cb = self._req_state[reqId].cb
-                del self._req_state[reqId]
-            if reqId in self._subscriptions:
-                del self._subscriptions[reqId]
-        if cb is not None:
-            cb(None)
-
     def active_request_count(self):
         with self._lock:
             return len(self._req_state) 
@@ -216,7 +210,7 @@ class AsyncioWrapperGenerator:
             if {request_id(d, m)} in self._req_state:
                 req_state = {current_request_state(d, m)}
                 if req_state.response is None:
-                    req_state.response = [] 
+                    req_state.response = []
                 req_state.response.append({response_instance(d, m)})"""
             else:
                 return f"""
@@ -279,15 +273,14 @@ class AsyncioWrapperGenerator:
         {call_response_cb(d,d.done_method)}"""
         with open(filename, "w") as f:
             f.write(f"""
-import asyncio
-import functools
+from ibapi.wrapper import EWrapper
 from ib_tws_server.asyncio.error import Error
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.ib_imports import *
-from threading import Lock, Thread
-from typing import Callable, Dict, List, Tuple
+from threading import Lock
+from typing import Dict, List
 
 class AsyncioWrapper(EWrapper):
     _lock: Lock
@@ -325,7 +318,7 @@ class AsyncioWrapper(EWrapper):
         if cb is not None:
             cb(res)
 
-    def error(self, reqId: TickerId, errorCode: int, errorString: str):
+    def error(self, reqId: int, errorCode: int, errorString: str):
         cb = None
         if reqId is not None:
             with self._lock:
