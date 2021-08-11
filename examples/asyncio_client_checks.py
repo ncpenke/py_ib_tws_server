@@ -55,42 +55,13 @@ async def test_async_request(test: Awaitable, check_response: Callable[[object],
     logger.log(logging.DEBUG, json.dumps(res, cls=JsonEncoder, indent="  "))
     log_result(check_response(res), res, test)
 
-class StreamingCallback:
-    _future: asyncio.Future
-    _check_response: Callable[[object],bool]
-    _res: object
-    _loop: asyncio.AbstractEventLoop
-
-    def __init__(self, check_response: Callable[[object],bool]):
-        self._loop = asyncio.get_running_loop()
-        self._future = asyncio.get_running_loop().create_future()
-        self._check_response = check_response
-
-    def __call__(self, res):
-        if self._future is not None:
-            self._future.set_result(res)
-        self._future = None
-
-    async def wait_for_result(self) -> bool:
-        self._res = await self._future
-        return self._check_response(self._res)
-
-    def res(self):
-        return self._res
-
-async def test_streaming_request(test: Callable, check_response: Callable, *args):
+async def test_streaming_request(test: Awaitable[SubscriptionGenerator], check_response: Callable):
     fail: bool = False
-    cb = StreamingCallback(check_response)
-    sub: Subscription = await test(cb, *args)
-
-    if sub is None:
-        log_result(False, test, test)
-        return
-
-    res = await cb.wait_for_result()
-    log_result(res, cb.res(), test)
-
-    sub.cancel()
+    gen = await test
+    async for res in gen:
+        log_result(check_response(res), res, test)
+        break
+    await gen.aclose()
 
 async def main_loop(c: AsyncioClient):
     await asyncio.gather(
@@ -100,14 +71,9 @@ async def main_loop(c: AsyncioClient):
         test_async_request(c.reqFundamentalData(contract_for_symbol("AMZN"), "ReportSnapshot", None), lambda c: c is not None and isinstance(c, str) and len(c) > 0),
         test_async_request(c.reqHistoricalData(contract_for_symbol("AMZN"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, list)),
         test_async_request(c.reqContractDetails(option_for_symbol("AMZN", 3300)), lambda x: x is not None and isinstance(x, list)),
-        test_streaming_request(c.reqTickByTickData, lambda c: c is not None and isinstance(c, TickByTickBidAsk), contract_for_symbol("AMZN"), "BidAsk", 0, False),
-        test_streaming_request(c.reqHistoricalDataAsSubscription, lambda c: c is not None and isinstance(c, BarData), contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ")
+        test_streaming_request(c.reqTickByTickData(contract_for_symbol("AMZN"), "BidAsk", 0, False), lambda c: c is not None and isinstance(c, TickByTickBidAsk)),
+        test_streaming_request(c.reqHistoricalDataAsSubscription(contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, BarData))
     )
-
-    if c.active_request_count() > 0:
-        logger.error(f"{c.active_request_count()} requests still active")
-    if c.active_subscription_count() > 0:
-        logger.error(f"{c.active_subscription_count()} subscriptions still active")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Output the current positions in JSON from TWS")
@@ -124,5 +90,10 @@ if __name__ == '__main__':
     c.start(args.host, args.port, args.client_id)
 
     asyncio.run(main_loop(c))
+
+    if c.active_request_count() > 0:
+        logger.error(f"{c.active_request_count()} requests still active")
+    if c.active_subscription_count() > 0:
+        logger.error(f"{c.active_subscription_count()} subscriptions still active")
 
     c.disconnect(True)

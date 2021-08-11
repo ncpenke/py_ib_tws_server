@@ -188,7 +188,7 @@ enum {short_name} {{"""
 }"""
             return code
 
-        def query_return_type(d: ApiDefinition):
+        def query_return_item_type(d: ApiDefinition):
             callback_types = GeneratorUtils.callback_types(d)
             if len(callback_types) < 2:
                 return callback_types[0]
@@ -200,7 +200,7 @@ enum {short_name} {{"""
             if len(callback_types) < 2:
                 return ""
             else:
-                union_type = query_return_type(d)
+                union_type = query_return_item_type(d)
                 union_types.add(union_type)
                 if union_type in processed_types:
                     raise RuntimeError(f"Union type {union_type} already processed")
@@ -210,8 +210,9 @@ union {union_type} = {"|".join([graphql_type(c, False) for c in callback_types])
 """
 
         def generate_query_or_subscription(d: ApiDefinition, is_subscription: bool):
-            name = GeneratorUtils.request_method_name(d, d.request_method, is_subscription)
-            members = GeneratorUtils.data_class_members(d, [d.request_method], False)
+            name = d.request_method.__name__
+            members = list(GeneratorUtils.request_signature(d, False).parameters.values())
+            del members[0] # remove 'self'
             annotations = []
             for m in members:
                 gql = graphql_type(m.annotation, True)
@@ -219,8 +220,11 @@ union {union_type} = {"|".join([graphql_type(c, False) for c in callback_types])
             members = [ f"{m.name}: {a}" for (m,a) in zip(members,annotations) ]
             member_str = ",".join(members)
             member_sig =  "" if len(member_str) == 0 else f"({member_str})"
+            query_return_type = graphql_type(query_return_item_type(d), False)
+            if GeneratorUtils.response_is_list(d) and not is_subscription:
+                query_return_type = f"[{query_return_type}]"
             return f"""
-    {name}{member_sig}: {graphql_type(query_return_type(d), False)}"""
+    {name}{member_sig}: {query_return_type}"""
 
         with open(filename, "w") as f:
             for d in REQUEST_DEFINITIONS:

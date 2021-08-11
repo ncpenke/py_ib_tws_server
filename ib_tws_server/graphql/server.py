@@ -4,7 +4,7 @@ from ariadne.graphql import subscribe
 from ariadne.objects import MutationType
 import asyncio
 from ib_tws_server.gen.asyncio_client import AsyncioClient
-from ib_tws_server.gen.graphql_resolver import query, graphql_resolver_set_client
+from ib_tws_server.gen.graphql_resolver import query, subscription, graphql_resolver_set_client
 import logging
 import sys
 
@@ -12,7 +12,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 type_defs = load_schema_from_path("ib_tws_server/gen/schema.graphql")
 
 mutation = MutationType()
-subscription = SubscriptionType()
 queue = asyncio.Queue(maxsize=0)
 
 users=dict()
@@ -133,7 +132,7 @@ async def messages_source(obj, info, user_id):
         queues.remove(queue)
         raise """
 
-schema = make_executable_schema(type_defs, query)
+schema = make_executable_schema(type_defs, query, subscription)
 app = GraphQL(schema, debug=True)
 
 

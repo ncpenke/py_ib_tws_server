@@ -19,7 +19,7 @@
         {
             "label": "codegen",
             "type": "shell",
-            "command": "rm -rf ib_tws_server/gen && PYTHONPATH=. python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
+            "command": "rm -rf ib_tws_server/gen && PYTHONPATH=. .venv/bin/python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -34,7 +34,7 @@
         {
             "label": "asyncio_client_checks",
             "type": "shell",
-            "command": "python3 examples/asyncio_client_checks.py",
+            "command": ".venv/bin/python3 examples/asyncio_client_checks.py",
             "group": {
                 "kind": "test",
                 "isDefault": true
@@ -49,7 +49,7 @@
         {
             "label": "asyncio_client_checks_debug",
             "type": "shell",
-            "command": "python3 examples/asyncio_client_checks.py -d",
+            "command": ".venv/bin/python3 examples/asyncio_client_checks.py -d",
             "group": {
                 "kind": "test",
                 "isDefault": true
@@ -64,7 +64,7 @@
         {
             "label": "run_webserver",
             "type": "shell",
-            "command": "uvicorn ib_tws_server.graphql.server:app",
+            "command": ".venv/bin/uvicorn ib_tws_server.graphql.server:app",
             "options": {
                 "env": {
                     "PYTHONPATH": "${workspaceFolder}"

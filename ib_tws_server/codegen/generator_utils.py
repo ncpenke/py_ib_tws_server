@@ -11,10 +11,10 @@ class GeneratorUtils:
         return name[0].upper() + name[1:]    
     
     @staticmethod
-    def request_method_name(d: ApiDefinition, u: Callable, is_subscription: bool):
+    def request_method_name(d: ApiDefinition, is_subscription: bool):
         if is_subscription and d.subscription_flag_name is not None:
-                return f"{u.__name__}AsSubscription"
-        return u.__name__
+                return f"{d.request_method.__name__}AsSubscription"
+        return d.request_method.__name__
 
     @staticmethod
     def callback_types(d: ApiDefinition) -> List[str]:
@@ -109,6 +109,29 @@ class GeneratorUtils:
         return sig
 
     @staticmethod
+    def request_signature(d: ApiDefinition, is_subscription: bool):
+        return_type = f"{GeneratorUtils.request_return_type(d, is_subscription)}"
+        signature = GeneratorUtils.signature(d.request_method).replace(return_annotation=return_type)
+        params = list(signature.parameters.values())
+        
+        if d.uses_req_id:
+            del params[1]
+        if d.subscription_flag_name is not None:
+            params = [ p for p in params if p.name != d.subscription_flag_name ]
+        return signature.replace(parameters=params)
+
+    @staticmethod
+    def graphql_request_params(d: ApiDefinition, is_subscription: bool):
+        signature = GeneratorUtils.signature(d.request_method)
+        params = list(signature.parameters.values())
+        if d.uses_req_id:
+            del params[1]
+        if d.subscription_flag_name is not None:
+            params = [ p for p in params if p.name != d.subscription_flag_name ]
+        del params[0] # omit self
+        return params
+
+    @staticmethod
     def data_class_members(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[inspect.Parameter]:
         to_skip = [ "self" ]
         if d.has_done_flag and d.callback_methods is not None and not streaming_class:
@@ -167,7 +190,7 @@ class GeneratorUtils:
     @staticmethod
     def request_return_type(d: ApiDefinition, is_subscription: bool):
         if is_subscription:
-            return "Subscription"
+            return "SubscriptionGenerator"
         elif (d.callback_methods is not None):
             return GeneratorUtils.response_type(d, is_subscription)
         else:

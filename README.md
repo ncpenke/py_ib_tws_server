@@ -71,27 +71,32 @@ The code generator assumes the TWS API is available as part of the python module
 
 The code generator uses definitions captured in [ib_tws_server/api_definition.py](./ib_tws_server/api_definition.py). These definitions describe the TWS API in terms of patterns described in the [TWS API Patterns](#tws-api-patterns) section.
 
-## Generated Classes
+## Generated Files
 
-Classes are generated in the `ib_tws_server/gen` directory as part of the build. 
+The generated files are in the `ib_tws_server/gen` directory.
 
-The following classes are generated:
-- Callback Classes:
-    - A top-level class is generated for every request that has one or more callbacks that return more than one value.
-    - For callbacks for queries the response class has the name `{RequestName}Response`
-    - For callbacks for subscriptions, the generated class has the name `{RequestName}Update`
-    - The top-level classes have member fields for each of the callbacks.
-    - Additional classes are generated that encapsulate the parameters for each of the callbacks when the callbacks return one or more parameters
-- `AsyncioClient`: Subclasses `ibapi.wrapper.EWrapper` and `ibapi.client.EClient` to implement the callbacks expected by the TWS API and wrap around the TWS API with asyncio semantics.
+The following files are generated:
+- `gen/client_responses.py`:
+    - Contains classes used for responses from the TWS API. The following types/classes are generated:
+    - Top-Level Unions:
+        - For requests that have more than one callback, and have complex responses that return more than one parameter, a Union type is generated to encapsulate all the different return types for a request
+    - Callback Classes:
+        - A top-level class is generated for every request that has one or more callbacks that return more than one value.
+        - For callbacks for queries the response class has the name `{RequestName}Response`
+        - Additional classes are generated that encapsulate the parameters for each of the callbacks when the callbacks return one or more parameters
+- `gen/asyncio_client.py`: 
+    - Contains the AsyncioClient class which subclasses the `ibapi.client.EClient` to provide an asyncio API around the TWS API
     - All request methods are asynchronous and declared using `async`
-    - Query methods that have a single item response return a `{RequestName}Response`. 
-    - Query methods that have a response consisting of a list of items return a `List{RequestName}Response`.
-    - Subscriptions return a `Subscription` instance that can be used to cancel the subscription, and additional take a callback that's queued on the running asyncio loop of the caller.
+    - Subscriptions return a `SubscriptionGenerator` instance is an `AsyncGenerator`
     - Request ids of the original TWS API are implicitly managed. 
     - Currently only subscriptions can be cancelled. Even though TWS API allows cancelling queries with multiple responses this is not exposed as part of the API. 
 - Other improvements
     - Errors from TWS are propagated via exceptions
     - To avoid blocking the asyncio running loop, an `IBWriter` class to send messages to TWS in a separate thread.
+- `gen/asyncio_wrapper.py`: 
+    - Subclasses `ibapi.client.EWrapper` and used internally by the `AsyncioClient` class
+- `gen/schema.graphql`: The GraphQL schema 
+- `gen/graphql_resolver.py`: GraphQL resolvers
 
 # Useful References
 
@@ -102,3 +107,4 @@ The following classes are generated:
     - [Post 2 Serverless](https://levelup.gitconnected.com/run-gateway-run-algorithmic-trading-the-serverless-way-71634dc1a37)
 - [Guide to Interactive Brokers API Code](https://github.com/corbinbalzan/IBAPICode/blob/master/ExecOrders_Part2/ibProgram1.py)
 - [Build a GraphQL API with Subscriptions using Python, Asyncio and Ariadne](https://www.twilio.com/blog/graphql-api-subscriptions-python-asyncio-ariadne)
+- [Introduction to Generators](https://realpython.com/introduction-to-python-generators/)

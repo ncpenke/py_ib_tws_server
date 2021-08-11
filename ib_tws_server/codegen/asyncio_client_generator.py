@@ -59,30 +59,21 @@ class AsyncioClientGenerator:
 
             current_subscription = f"self.{subscription_member_name(d)}[{request_id(d, d.request_method)}]"
 
-            return f"{current_subscription}= Subscription(streaming_cb, self.__{d.cancel_method.__name__}, {GeneratorUtils.req_id_param_name(d.request_method)}, asyncio.get_running_loop())"
+            return f"{current_subscription}= SubscriptionGenerator(self.__{d.cancel_method.__name__}, {GeneratorUtils.req_id_param_name(d.request_method)})"
 
         def async_request_method(d: ApiDefinition, is_subscription: bool):
-            return_type = f"{GeneratorUtils.request_return_type(d, is_subscription)}"
-            signature = GeneratorUtils.signature(d.request_method).replace(return_annotation=return_type)
-            params = list(signature.parameters.values())
-            method_name = GeneratorUtils.request_method_name(d, d.request_method, is_subscription)
-            param_values = [ p.name if p.name != d.subscription_flag_name else f"{d.subscription_flag_value}" for p in params ]
+            method_name = GeneratorUtils.request_method_name(d, is_subscription)
+            original_sig = GeneratorUtils.signature(d.request_method)
+            signature = GeneratorUtils.request_signature(d, is_subscription)
+            param_values = [ p.name if p.name != d.subscription_flag_name else f"{d.subscription_flag_value}" for p in original_sig.parameters.values() ]
             
-            if d.uses_req_id:
-                del params[1]
-            if is_subscription:
-                params.insert(1, inspect.Parameter('streaming_cb', kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=f"Callable[[{GeneratorUtils.response_type(d, True)}],None]"))
-            if d.subscription_flag_name is not None:
-                params = [ p for p in params if p.name != d.subscription_flag_name ]
-            signature = signature.replace(parameters=params)
-
             if is_subscription:
                 return f"""
 
     async def {method_name}{signature}:
         {GeneratorUtils.doc_string(d.request_method)}
         {init_request_id(d, d.request_method)}
-        ret: Subscription = None
+        ret: SubscriptionGenerator = None
         with self._lock:
             ret = {init_subscription(d)}
         self._writer.queue.put({bind_method(d, d.request_method, param_values)})
@@ -128,6 +119,7 @@ from ibapi.client import EClient
 from ib_tws_server.asyncio.error import Error
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
+from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_wrapper import *
 from ib_tws_server.ib_imports import *
@@ -137,7 +129,7 @@ from typing import Callable, Dict, List, Tuple
 class AsyncioClient():
     _lock: Lock
     _req_state: Dict[str, RequestState]
-    _subscriptions: Dict[int, Subscription]
+    _subscriptions: Dict[int, SubscriptionGenerator]
     _wrapper: AsyncioWrapper
     _client: EClient
 
@@ -145,7 +137,7 @@ class AsyncioClient():
         self._lock = Lock()
         self._current_request_id = 0
         self._req_state = defaultdict(RequestState)
-        self._subscriptions = defaultdict(Subscription)
+        self._subscriptions = defaultdict(SubscriptionGenerator)
 
         self._wrapper = AsyncioWrapper(self._lock, self._req_state, self._subscriptions)
         self._client = EClient(self._wrapper)
@@ -277,6 +269,7 @@ from ibapi.wrapper import EWrapper
 from ib_tws_server.asyncio.error import Error
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
+from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.ib_imports import *
 from threading import Lock
@@ -285,11 +278,11 @@ from typing import Dict, List
 class AsyncioWrapper(EWrapper):
     _lock: Lock
     _req_state: Dict[str, RequestState]
-    _subscriptions: Dict[int, Subscription]
+    _subscriptions: Dict[int, SubscriptionGenerator]
     _expecting_disconnect: bool
     _writer: IBWriter
 
-    def __init__(self, lock: Lock, req_state: Dict[str, RequestState], subscriptions: Dict[int, Subscription]):
+    def __init__(self, lock: Lock, req_state: Dict[str, RequestState], subscriptions: Dict[int, SubscriptionGenerator]):
         self._lock = lock
         self._req_state = req_state
         self._subscriptions = subscriptions
@@ -337,8 +330,8 @@ class AsyncioWrapper(EWrapper):
         with self._lock:
             if id in self._subscriptions:
                 s = self._subscriptions[id]
-                cb = s.streaming_cb
-                loop = s.loop
+                cb = s.add_to_queue
+                loop = s._loop
         if loop is not None:
             loop.call_soon_threadsafe(cb, res)
 """)

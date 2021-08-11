@@ -1,3 +1,4 @@
+from typing import Generator
 from ib_tws_server.util.dict_to_object import dict_to_object
 from ib_tws_server.util.type_util import *
 from ib_tws_server.api_definition import *
@@ -21,17 +22,17 @@ class GraphQLResolverGenerator:
             if (m is not None):
                 item_type_str = m.group(1)
                 return f"""
-        {value_str} = [  dict_to_object(val, {item_type_str}) for val in {value_str} ]"""
+    {value_str} = [  dict_to_object(val, {item_type_str}) for val in {value_str} ]"""
 
             cls = find_sym_from_full_name_or_module(type_str, ibapi)
             if cls is None:
                 raise RuntimeError(f"Could not find symbol for {type_str}")
             return f"""
-        {value_str} = dict_to_object({value_str}, {type_str})"""
+    {value_str} = dict_to_object({value_str}, {type_str})"""
 
         def query_resolver(d: ApiDefinition):
             query_name = d.request_method.__name__
-            params = GeneratorUtils.data_class_members(d, [d.request_method], False)
+            params = GeneratorUtils.graphql_request_params(d, False)
             query_resolver_params = [ f"{p.name}: {p.annotation}" for p in params ]
             query_resolver_params.insert(0, 'obj')
             query_resolver_params.insert(1, 'info')
@@ -41,18 +42,42 @@ class GraphQLResolverGenerator:
             return f"""
 @query.field("{query_name}")
 async def resolve_{query_name}({','.join(query_resolver_params)}):
-        {transformed_params}
-        return await g_client.{query_name}({','.join(forwarded_params)})"""
+    {transformed_params}
+    return await g_client.{query_name}({','.join(forwarded_params)})"""
+
+        def subscription_source_and_resolver(d: ApiDefinition):
+            sub_name = d.request_method.__name__
+            api_sub_name = GeneratorUtils.request_method_name(d, True)
+            params = GeneratorUtils.graphql_request_params(d, True)
+            decl_params = [ f"{p.name}: {p.annotation}" for p in params ]
+            decl_params.insert(0, 'obj')
+            decl_params.insert(1, 'info')
+            decl_params_str = ','.join(decl_params)
+            forwarded_params = [ p.name for p in params ]
+            transformed_params = "".join([transform_param_if_needed(p.annotation, p.name) for p in params])
+
+            return f"""
+@subscription.source("{sub_name}")
+async def source_{sub_name}({decl_params_str}) -> AsyncGenerator:
+    {transformed_params}
+    return await g_client.{api_sub_name}({','.join(forwarded_params)})
+
+@subscription.field("{sub_name}")
+async def resolve_{sub_name}({decl_params_str}):
+    return obj
+"""
 
         with open(filename, "w") as f:
             f.write("""
-from ariadne import QueryType
+from ariadne import QueryType, SubscriptionType
 from ib_tws_server.util.dict_to_object import *
 from ib_tws_server.gen.asyncio_client import AsyncioClient
 from ib_tws_server.ib_imports import *
+from typing import AsyncGenerator
 
 g_client: AsyncioClient = None
 query = QueryType()
+subscription = SubscriptionType()
 
 def graphql_resolver_set_client(client: AsyncioClient):
     global g_client
@@ -62,5 +87,9 @@ def graphql_resolver_set_client(client: AsyncioClient):
                 if d.request_method is not None and d.callback_methods is not None:
                     if not d.is_subscription:
                         f.write(query_resolver(d))
+                        if d.subscription_flag_name is not None:
+                           f.write(subscription_source_and_resolver(d))
+                    else:
+                        f.write(subscription_source_and_resolver(d))
 
     
