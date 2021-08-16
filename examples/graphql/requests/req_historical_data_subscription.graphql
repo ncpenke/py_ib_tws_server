@@ -1,0 +1,24 @@
+subscription {
+    reqHistoricalData(
+        contract: {
+            secType: "STK",
+            symbol: "AMZN",
+            currency: "USD",
+            exchange: "SMART"
+        },
+        endDateTime: "",
+        durationStr: "60 S",
+        barSizeSetting: "1 secs",
+        whatToShow: "TRADES",
+        useRTH: 0,
+        formatDate: 2,
+        chartOptions: [{value: "XYZ"}]
+    ) {
+        barCount,
+        open,
+        close,
+        high,
+        low,
+        average
+    }
+}

@@ -1,0 +1,19 @@
+subscription {
+    reqTickByTickData(
+        contract: {
+            secType: "STK",
+            symbol: "AMZN",
+            currency: "USD",
+            exchange: "SMART"
+        },
+        tickType: "BidAsk",
+        numberOfTicks: 0,
+        ignoreSize: false
+    ) {
+        __typename
+        ... on TickByTickBidAsk {
+            bidPrice,
+            askPrice
+        }
+    }
+}

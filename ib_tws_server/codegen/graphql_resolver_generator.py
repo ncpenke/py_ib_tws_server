@@ -13,6 +13,7 @@ class GraphQLResolverGenerator:
     @staticmethod
     def generate(filename):
         container_re = re.compile("(?:typing\.)?List\[([^\]]+)\]")
+        union_types = []
 
         def transform_param_if_needed(type_str: str, value_str: str):
             if is_builtin_type_str(type_str):
@@ -67,11 +68,35 @@ async def resolve_{sub_name}({decl_params_str}):
     return obj
 """
 
+        def union_type_resolver(d: ApiDefinition):
+            if not GeneratorUtils.query_return_item_type_is_union(d):
+                return ""
+
+            union_type = GeneratorUtils.query_return_item_type(d)
+            ret = f"""
+union_{union_type} = UnionType("{union_type}")
+@union_{union_type}.type_resolver
+def resolve_{union_type}(obj, *_):"""
+            first = True
+            for c in d.callback_methods:
+                callback_type,wrapper_type = GeneratorUtils.callback_type(d, c)
+                ret += f"""
+    {"if" if first else "elif"} isinstance(obj, {callback_type}):
+        return "{callback_type}"
+"""
+                first = False
+            ret += f"""
+    return None
+"""
+            union_types.append(f"union_{union_type}")
+            return ret
+
         with open(filename, "w") as f:
             f.write("""
-from ariadne import QueryType, SubscriptionType
+from ariadne import QueryType, SubscriptionType, UnionType
 from ib_tws_server.util.dict_to_object import *
 from ib_tws_server.gen.asyncio_client import AsyncioClient
+from ib_tws_server.gen.client_responses import *
 from ib_tws_server.ib_imports import *
 from typing import AsyncGenerator
 
@@ -91,5 +116,7 @@ def graphql_resolver_set_client(client: AsyncioClient):
                            f.write(subscription_source_and_resolver(d))
                     else:
                         f.write(subscription_source_and_resolver(d))
+                    f.write(union_type_resolver(d))
+            f.write(f"union_types = [{','.join(union_types)}]")
 
     

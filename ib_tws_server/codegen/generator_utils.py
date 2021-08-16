@@ -199,3 +199,18 @@ class GeneratorUtils:
     @staticmethod
     def unqualified_type_name(s: str):
         return s.split(".")[-1]
+
+    @staticmethod
+    def query_return_item_type(d: ApiDefinition):
+        callback_types = GeneratorUtils.callback_types(d)
+        if len(callback_types) < 2:
+            return callback_types[0]
+        else:
+            return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
+
+    @staticmethod
+    def query_return_item_type_is_union(d: ApiDefinition):
+        callback_types = GeneratorUtils.callback_types(d)
+        if len(callback_types) < 2:
+            return False
+        return True

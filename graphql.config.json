@@ -1,0 +1,11 @@
+{
+    "schema": "./ib_tws_server/gen/schema.graphql",
+    "documents": ["**/*.{graphql,js,ts,jsx,tsx}"],
+    "extensions": {
+        "endpoints": {
+            "default": {
+                "url": "http://localhost:8000"
+            }
+        }
+    }
+}

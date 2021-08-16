@@ -1,3 +1,4 @@
+from typing import Generator
 from ib_tws_server.api_definition import *
 from ib_tws_server.codegen.generator_utils import *
 from ib_tws_server.ib_imports import *
@@ -188,19 +189,12 @@ enum {short_name} {{"""
 }"""
             return code
 
-        def query_return_item_type(d: ApiDefinition):
-            callback_types = GeneratorUtils.callback_types(d)
-            if len(callback_types) < 2:
-                return callback_types[0]
-            else:
-                return f"{GeneratorUtils.type_name(d.request_method.__name__)}Response"
 
         def generate_union_type(d: ApiDefinition):
-            callback_types = GeneratorUtils.callback_types(d)
-            if len(callback_types) < 2:
+            if not GeneratorUtils.query_return_item_type_is_union(d):
                 return ""
             else:
-                union_type = query_return_item_type(d)
+                union_type = GeneratorUtils.query_return_item_type(d)
                 union_types.add(union_type)
                 if union_type in processed_types:
                     raise RuntimeError(f"Union type {union_type} already processed")
@@ -220,7 +214,7 @@ union {union_type} = {"|".join([graphql_type(c, False) for c in callback_types])
             members = [ f"{m.name}: {a}" for (m,a) in zip(members,annotations) ]
             member_str = ",".join(members)
             member_sig =  "" if len(member_str) == 0 else f"({member_str})"
-            query_return_type = graphql_type(query_return_item_type(d), False)
+            query_return_type = graphql_type(GeneratorUtils.query_return_item_type(d), False)
             if GeneratorUtils.response_is_list(d) and not is_subscription:
                 query_return_type = f"[{query_return_type}]"
             return f"""

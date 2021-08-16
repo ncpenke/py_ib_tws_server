@@ -1,8 +1,27 @@
 {
     "cSpell.words": [
+        "aclose",
+        "aiter",
+        "anext",
+        "asend",
+        "asgi",
         "asyncio",
+        "athrow",
         "codegen",
+        "ibapi",
         "pythonpath",
         "threadsafe"
-    ]
+    ],
+    "cSpell.ignorePaths": [
+        "**/package-lock.json",
+        "**/node_modules/**",
+        "**/vscode-extension/**",
+        "**/.git/objects/**",
+        ".vscode",
+        ".vscode-insiders",
+        "**/site-packages/**",
+        ".venv",
+        "gen"
+    ],
+    "vscode-graphql.debug": true
 }
