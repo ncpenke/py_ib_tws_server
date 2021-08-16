@@ -108,3 +108,5 @@ The following files are generated:
 - [Guide to Interactive Brokers API Code](https://github.com/corbinbalzan/IBAPICode/blob/master/ExecOrders_Part2/ibProgram1.py)
 - [Build a GraphQL API with Subscriptions using Python, Asyncio and Ariadne](https://www.twilio.com/blog/graphql-api-subscriptions-python-asyncio-ariadne)
 - [Introduction to Generators](https://realpython.com/introduction-to-python-generators/)
+- [GraphQL Configuration](https://graphql-config.com/introduction/)
+- [Resolving Union Types in Ariadne](https://ariadnegraphql.org/docs/unions)
