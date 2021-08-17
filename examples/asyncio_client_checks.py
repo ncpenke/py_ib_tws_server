@@ -1,11 +1,11 @@
-    import argparse
+import argparse
 from datetime import datetime, timedelta
 import json
 import logging
 from ibapi import contract
 from ibapi.common import BarData
 from ibapi.contract import Contract
-from ib_tws_server.asyncio.error import Error
+from ib_tws_server.ib_error import *
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_client import *
 from typing import Awaitable
@@ -44,8 +44,8 @@ def log_result(p: bool, res: any, req: any):
     if (p):
         logger.log(logging.INFO, f"SUCCESS {req.__name__} returned {res.__class__.__name__}")
     else:
-        if isinstance(res, Error):
-            err: Error = res
+        if isinstance(res, IbError):
+            err: IbError = res
             logger.log(logging.INFO, f"FAILED  {req.__name__} returned Error reason: {err.reason} code: {err.code}")
         else:
             logger.log(logging.INFO, f"FAILED  {req.__name__} returned {res.__class__.__name__}")
@@ -71,6 +71,7 @@ async def main_loop(c: AsyncioClient):
         test_async_request(c.reqFundamentalData(contract_for_symbol("AMZN"), "ReportSnapshot", None), lambda c: c is not None and isinstance(c, str) and len(c) > 0),
         test_async_request(c.reqHistoricalData(contract_for_symbol("AMZN"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, list)),
         test_async_request(c.reqContractDetails(option_for_symbol("AMZN", 3300)), lambda x: x is not None and isinstance(x, list)),
+        test_async_request(c.reqMktData(contract_for_symbol("AMZN"), "", False, None), lambda x: x is not None and isinstance(x, list)),
         test_streaming_request(c.reqTickByTickData(contract_for_symbol("AMZN"), "BidAsk", 0, False), lambda c: c is not None and isinstance(c, TickByTickBidAsk)),
         test_streaming_request(c.reqHistoricalDataAsSubscription(contract_for_symbol("U"), "", "60 S", "1 secs", "TRADES", 0, 2, "XYZ"), lambda c: c is not None and isinstance(c, BarData))
     )

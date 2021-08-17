@@ -65,7 +65,7 @@ class AsyncioClientGenerator:
             method_name = GeneratorUtils.request_method_name(d, is_subscription)
             original_sig = GeneratorUtils.signature(d.request_method)
             signature = GeneratorUtils.request_signature(d, is_subscription)
-            param_values = [ p.name if p.name != d.subscription_flag_name else f"{d.subscription_flag_value}" for p in original_sig.parameters.values() ]
+            param_values = [ p.name if p.name != d.subscription_flag_name else f"{d.subscription_flag_value if is_subscription else not d.subscription_flag_value}" for p in original_sig.parameters.values() ]
             
             if is_subscription:
                 return f"""
@@ -91,7 +91,10 @@ class AsyncioClientGenerator:
         with self._lock:
             {init_callback(d, d.request_method, 'cb')}
         self._writer.queue.put({bind_method(d, d.request_method, param_values)})
-        return (await future)"""
+        res = (await future)
+        if isinstance(res, IbError):
+            raise res
+        return res"""
 
             else:
                 return f"""
@@ -116,7 +119,7 @@ import asyncio
 import functools
 from collections import defaultdict
 from ibapi.client import EClient
-from ib_tws_server.asyncio.error import Error
+from ib_tws_server.ib_error import *
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
 from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
@@ -266,7 +269,7 @@ class AsyncioWrapperGenerator:
         with open(filename, "w") as f:
             f.write(f"""
 from ibapi.wrapper import EWrapper
-from ib_tws_server.asyncio.error import Error
+from ib_tws_server.ib_error import *
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
 from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
@@ -320,7 +323,7 @@ class AsyncioWrapper(EWrapper):
                     cb = s.cb
                     del self._req_state[reqId]
         if cb is not None:
-            cb(Error(errorString, errorCode))
+            cb(IbError(errorString, errorCode))
         else:
             super().error(reqId, errorCode, errorString)
         

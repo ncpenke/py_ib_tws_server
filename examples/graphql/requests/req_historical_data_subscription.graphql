@@ -19,6 +19,8 @@ subscription {
         close,
         high,
         low,
-        average
+        average,
+        date,
+        volume
     }
 }

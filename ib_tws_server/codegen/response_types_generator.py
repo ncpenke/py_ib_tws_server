@@ -34,13 +34,6 @@ from dataclasses import dataclass
 from ib_tws_server.ib_imports import *
 from typing import Dict, List, Union
 
-class Error:
-    reason: str
-    code: int
-
-    def __init__(self, reason: str, code: int):
-        self.reason = reason
-        self.code = code
 """)
 
             for d in REQUEST_DEFINITIONS:

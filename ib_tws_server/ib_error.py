@@ -1,4 +1,4 @@
-class Error(Exception):
+class IbError(Exception):
     reason: str
     code: int
 
