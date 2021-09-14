@@ -28,13 +28,19 @@ def contract_for_symbol(sym: str):
     c.exchange = "SMART"
     return c
 
+def current_friday_date():
+    d = datetime.now()
+    delta = 4 - d.weekday()
+    d += timedelta(days=delta)
+    return d.strftime("%Y%m%d")
+
 def option_for_symbol(sym: str, strike: float):
     c = Contract()
     c.symbol = sym
     c.secType = "OPT"
     c.currency = "USD"
     c.exchange = "SMART"
-    c.lastTradeDateOrContractMonth = "20210820"
+    c.lastTradeDateOrContractMonth = current_friday_date()
     c.strike = 3300
     c.right = "C"
     c.multiplier = "100"

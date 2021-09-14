@@ -1,8 +1,11 @@
 # Introduction
 
-The goal of this package is to facilitate wrapping the Interactive Brokers TWS Python API to expose it as a service using GraphQL, and other frameworks. 
+This package exposes the Interactive Brokers TWS Python API as service. Two options are provided:
 
-This work is distinct from other projects in that it doesn't attempt to re-implement the TWS API. Instead, the TWS API is used as is, and custom behavior is implemented through code generation and supporting classes.
+1. An asyncio API is provided which can be directly used to implement a service
+2. A GraphQL endpoint that internally uses the asyncio API is provided, that allows running the TWS API as a GraphQL server.
+
+This work is distinct from other projects in that it doesn't attempt to re-implement the TWS API. Instead, the TWS API is used as is, and the service is implemented through code generation and supporting classes.
 
 Testing has been performed with TWS API 9.85.1.
 
@@ -10,9 +13,9 @@ Testing has been performed with TWS API 9.85.1.
 
 - [Example of using the asyncio API](./examples/asyncio_client_checks.py)
 
-# TWS API
+# TWS API Setup and Notes Notes
 
-The following section describes the Interactive Brokers TWS API setup and contains notes that describe the TWS API.
+The following section describes the Interactive Brokers TWS API setup and notes that describe the TWS API, which were useful in the implementation of this package.
 
 ## TWS API Setup
 
