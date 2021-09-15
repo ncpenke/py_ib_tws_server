@@ -19,7 +19,7 @@
         {
             "label": "codegen",
             "type": "shell",
-            "command": "rm -rf ib_tws_server/gen && PYTHONPATH=. .venv/bin/python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
+            "command": ".venv/bin/python3 ib_tws_server/codegen/main.py -o ib_tws_server/gen",
             "group": {
                 "kind": "build",
                 "isDefault": true

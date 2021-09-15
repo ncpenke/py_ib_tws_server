@@ -2,3 +2,4 @@ ariadne
 asyncio
 uvicorn[standard]
 wheel
+https://interactivebrokers.github.io/downloads/twsapi_macunix.976.01.zip#subdirectory=IBJts/source/pythonclient
