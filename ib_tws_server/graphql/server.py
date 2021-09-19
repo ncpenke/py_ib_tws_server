@@ -6,6 +6,7 @@ import asyncio
 from ib_tws_server.gen.asyncio_client import AsyncioClient
 from ib_tws_server.gen.graphql_resolver import query, subscription, graphql_resolver_set_client, union_types
 import logging
+from starlette.middleware.cors import CORSMiddleware
 import sys
 
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
@@ -19,7 +20,7 @@ messages=[]
 queues = []
 
 schema = make_executable_schema(type_defs, query, subscription, union_types)
-app = GraphQL(schema, debug=True)
+app = CORSMiddleware(app=GraphQL(schema, debug=True), allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
 
 c = AsyncioClient()
 c.start("127.0.0.1", 7496, 0)
