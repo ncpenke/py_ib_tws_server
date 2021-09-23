@@ -33,6 +33,7 @@ class GraphQLResolverGenerator:
 
         def query_resolver(d: ApiDefinition):
             query_name = d.request_method.__name__
+            public_query_name = GeneratorUtils.graphql_public_name(query_name)
             params = GeneratorUtils.graphql_request_params(d, False)
             query_resolver_params = [ f"{p.name}: {p.annotation}" for p in params ]
             query_resolver_params.insert(0, 'obj')
@@ -41,13 +42,14 @@ class GraphQLResolverGenerator:
             transformed_params = "".join([transform_param_if_needed(p.annotation, p.name) for p in params])
 
             return f"""
-@query.field("{query_name}")
-async def resolve_{query_name}({','.join(query_resolver_params)}):
+@query.field("{public_query_name}")
+async def resolve_{public_query_name}({','.join(query_resolver_params)}):
     {transformed_params}
     return await g_client.{query_name}({','.join(forwarded_params)})"""
 
         def subscription_source_and_resolver(d: ApiDefinition):
             sub_name = d.request_method.__name__
+            public_sub_name = GeneratorUtils.graphql_public_name(sub_name)
             api_sub_name = GeneratorUtils.request_method_name(d, True)
             params = GeneratorUtils.graphql_request_params(d, True)
             decl_params = [ f"{p.name}: {p.annotation}" for p in params ]
@@ -58,13 +60,13 @@ async def resolve_{query_name}({','.join(query_resolver_params)}):
             transformed_params = "".join([transform_param_if_needed(p.annotation, p.name) for p in params])
 
             return f"""
-@subscription.source("{sub_name}")
-async def source_{sub_name}({decl_params_str}) -> AsyncGenerator:
+@subscription.source("{public_sub_name}")
+async def source_{public_sub_name}({decl_params_str}) -> AsyncGenerator:
     {transformed_params}
     return await g_client.{api_sub_name}({','.join(forwarded_params)})
 
-@subscription.field("{sub_name}")
-async def resolve_{sub_name}({decl_params_str}):
+@subscription.field("{public_sub_name}")
+async def resolve_{public_sub_name}({decl_params_str}):
     return obj
 """
 
@@ -72,7 +74,7 @@ async def resolve_{sub_name}({decl_params_str}):
             if not GeneratorUtils.query_return_item_type_is_union(d):
                 return ""
 
-            union_type = GeneratorUtils.query_return_item_type(d)
+            union_type = GeneratorUtils.graphql_public_name(GeneratorUtils.query_return_item_type(d))
             ret = f"""
 union_{union_type} = UnionType("{union_type}")
 @union_{union_type}.type_resolver
@@ -80,9 +82,10 @@ def resolve_{union_type}(obj, *_):"""
             first = True
             for c in d.callback_methods:
                 callback_type,wrapper_type = GeneratorUtils.callback_type(d, c)
+                public_callback_type = GeneratorUtils.graphql_public_name(callback_type)
                 ret += f"""
     {"if" if first else "elif"} isinstance(obj, {callback_type}):
-        return "{callback_type}"
+        return "{public_callback_type}"
 """
                 first = False
             ret += f"""

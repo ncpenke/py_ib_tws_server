@@ -132,6 +132,10 @@ class GeneratorUtils:
         return params
 
     @staticmethod
+    def graphql_public_name(n: str):
+        return f"ib_{n}"
+
+    @staticmethod
     def data_class_members(d: ApiDefinition, methods: List[Callable], streaming_class: bool) -> List[inspect.Parameter]:
         to_skip = [ "self" ]
         if d.has_done_flag and d.callback_methods is not None and not streaming_class:

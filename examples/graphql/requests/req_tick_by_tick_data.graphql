@@ -1,5 +1,5 @@
 subscription {
-    reqTickByTickData(
+    ib_reqTickByTickData(
         contract: {
             secType: "STK",
             symbol: "AMZN",
@@ -11,7 +11,7 @@ subscription {
         ignoreSize: false
     ) {
         __typename
-        ... on TickByTickBidAsk {
+        ... on ib_TickByTickBidAsk {
             bidPrice,
             askPrice
         }

@@ -1,5 +1,5 @@
 subscription {
-    reqHistoricalData(
+    ib_reqHistoricalData(
         contract: {
             secType: "STK",
             symbol: "AMZN",

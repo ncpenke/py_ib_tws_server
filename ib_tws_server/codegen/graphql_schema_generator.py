@@ -32,11 +32,11 @@ class GraphQLSchemaGenerator:
         # TODO: revisit
         enums.add('ibapi.order_condition.OrderCondition')
 
-        def graphql_type_name(s:str, is_input: bool):
-            return f"{GeneratorUtils.unqualified_type_name(s)}{'Input' if is_input else ''}"
+        def graphql_custom_type_name(s:str, is_input: bool):
+            return GeneratorUtils.graphql_public_name(f"{GeneratorUtils.unqualified_type_name(s)}{'Input' if is_input else ''}")
 
         def check_if_processed(s:str, is_input: bool):
-            u = graphql_type_name(s, is_input)
+            u = graphql_custom_type_name(s, is_input)
             if u in processed_types:
                 if processed_types[u] != s:
                     if (not s.startswith('ibapi')) or (not processed_types[u].startswith('ibapi')):
@@ -45,7 +45,8 @@ class GraphQLSchemaGenerator:
             return False
 
         def add_type_for_processing(s: str, is_input: bool):
-            if s in builtin_type_mappings or s in callback_types or s in union_types or check_if_processed(s, is_input) or (s,is_input) in unprocessed_types:
+            public_name = graphql_custom_type_name(s, is_input)
+            if s in builtin_type_mappings or public_name in callback_types or public_name in union_types or check_if_processed(s, is_input) or (s,is_input) in unprocessed_types:
                 return
             m = container_re.match(s)
             if m is not None:
@@ -79,18 +80,21 @@ class GraphQLSchemaGenerator:
                 return f"[{graphql_type(m.group(2), is_input)}]"
             elif t in builtin_type_mappings:
                 return builtin_type_mappings[t]
-            elif t in callback_types or t in union_types:
-                return t
             elif t in ENUM_ALIASES:
                 return graphql_type(ENUM_ALIASES[t], is_input)
+
+            public_name = GeneratorUtils.graphql_public_name(t)
+            
+            if public_name in callback_types or public_name in union_types:
+                return public_name
             else:
                 dict_m = dict_re.match(t)
                 if dict_m is not None:
-                    type_name = f"{GeneratorUtils.unqualified_type_name(dict_m.group(2))}Map"
+                    type_name = GeneratorUtils.graphql_public_name(f"{GeneratorUtils.unqualified_type_name(dict_m.group(2))}Map")
                     add_scalar(type_name, "Dictionary", False)
                     return type_name
                 resolved_type = find_sym_from_full_name_or_module(t, ibapi)
-                ret_type_str =  GeneratorUtils.unqualified_type_name(t)
+                ret_type_str =  GeneratorUtils.graphql_public_name(GeneratorUtils.unqualified_type_name(t))
                 if resolved_type is not None:
                     if isinstance(resolved_type, ibapi.common.Enum):
                         add_enum(t)
@@ -99,7 +103,7 @@ class GraphQLSchemaGenerator:
                         return ret_type_str
                     else:
                         add_type_for_processing(t, is_input)
-                        return graphql_type_name(t, is_input)
+                        return graphql_custom_type_name(t, is_input)
                 else:
                     raise RuntimeError(f"Could not determine type for {t}")
 
@@ -119,12 +123,12 @@ class GraphQLSchemaGenerator:
 
             logger.log(logging.DEBUG, f"Generating {type_name}")
 
-            unqualified_name = graphql_type_name(type_name, is_input)
+            public_name = graphql_custom_type_name(type_name, is_input)
             cls =  find_sym_from_full_name_or_module(type_name, ibapi)
             if cls is None:
                 raise RuntimeError(f"Could not find symbol for {type_name}")
             cls_dict = cls.__dict__
-            processed_types[unqualified_name] = type_name
+            processed_types[public_name] = type_name
             if ('__annotations__' in cls_dict):
                 members = [ (k,graphql_type(v)) for k,v in cls_dict['__annotations__']  ]
             else:
@@ -132,12 +136,12 @@ class GraphQLSchemaGenerator:
                 members = [ (n, object_member_type(obj, n, t, is_input)) for n,t in inspect.getmembers(obj) if not n.startswith("__")  ]
             for m,t in members:
                 if t is None:
-                    add_scalar(cls.__name__, f"Could not find type for member '{m}'' for class '{cls.__name__}'", True)
+                    add_scalar(GeneratorUtils.graphql_public_name(cls.__name__), f"Could not find type for member '{m}'' for class '{cls.__name__}'", True)
                     return ""
 
             code = f"""
 
-{'input' if is_input else 'type'} {unqualified_name} {{"""
+{'input' if is_input else 'type'} {public_name} {{"""
             for p,t in members:
                 code += f"""
     {p}: {t}"""
@@ -147,6 +151,7 @@ class GraphQLSchemaGenerator:
 
         def generate_callback_type(d: ApiDefinition, m: Callable):
             type_name,is_wrapper = GeneratorUtils.callback_type(d, m)
+            type_name = GeneratorUtils.graphql_public_name(type_name)
 
             if not is_wrapper:
                 return ""
@@ -178,7 +183,7 @@ type {type_name} {{"""
 
         def generate_enum(e: str):
             resolved_type = find_sym_from_full_name(e)
-            short_name = GeneratorUtils.unqualified_type_name(resolved_type.__name__)
+            short_name = GeneratorUtils.graphql_public_name(GeneratorUtils.unqualified_type_name(resolved_type.__name__))
             code = f""" 
 enum {short_name} {{"""
             for k,v in inspect.getmembers(resolved_type):
@@ -189,22 +194,21 @@ enum {short_name} {{"""
 }"""
             return code
 
-
         def generate_union_type(d: ApiDefinition):
             if not GeneratorUtils.query_return_item_type_is_union(d):
                 return ""
             else:
-                union_type = GeneratorUtils.query_return_item_type(d)
+                union_type =  GeneratorUtils.graphql_public_name(GeneratorUtils.query_return_item_type(d))
                 union_types.add(union_type)
                 if union_type in processed_types:
                     raise RuntimeError(f"Union type {union_type} already processed")
                 processed_types[union_type] = union_type
                 return  f"""
-union {union_type} = {"|".join([graphql_type(c, False) for c in callback_types])}
+union {(union_type)} = {"|".join([graphql_type(c, False) for c in GeneratorUtils.callback_types(d)])}
 """
 
         def generate_query_or_subscription(d: ApiDefinition, is_subscription: bool):
-            name = d.request_method.__name__
+            name = GeneratorUtils.graphql_public_name(d.request_method.__name__)
             members = list(GeneratorUtils.request_signature(d, False).parameters.values())
             del members[0] # remove 'self'
             annotations = []
