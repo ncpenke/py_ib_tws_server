@@ -29,8 +29,6 @@ def generate(output_dir: str):
     GraphQLSchemaGenerator.generate(graphql_schema_fname)
     GraphQLResolverGenerator.generate(graphql_resolver_fname)
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate wrapper classes from the request definitions")
     parser.add_argument('--output-dir', '-o', dest="output_dir", required=True, help='The output directory')

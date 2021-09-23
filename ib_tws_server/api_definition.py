@@ -329,7 +329,7 @@ OVERRIDDEN_MEMBER_TYPE_HINTS = {
         'usePriceMgmtAlgo': 'bool'
     },
     'Contract': {
-        'comboLegs': 'List[ibapi.order.OrderComboLeg]',
+        'comboLegs': 'List[ibapi.contract.ComboLeg]',
         'deltaNeutralContract': 'ibapi.contract.DeltaNeutralContract'
     },
     'ContractDetails': {
