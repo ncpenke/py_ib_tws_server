@@ -119,14 +119,15 @@ import asyncio
 import functools
 from collections import defaultdict
 from ibapi.client import EClient
-from ib_tws_server.ib_error import *
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
 from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
+from ib_tws_server.error import *
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_wrapper import *
 from ib_tws_server.ib_imports import *
 from threading import Lock, Thread
+import time
 from typing import Callable, Dict, List, Tuple
 
 class AsyncioClient():
@@ -171,8 +172,17 @@ class AsyncioClient():
         if response_cb is not None:
             response_cb(None)
 
-    def start(self, host: str, port: int, client_id: int):
-        self._client.connect(host, port, client_id)
+    def start(self, host: str, port: int, client_id: int, connection_retry_interval: int):
+        while True:
+            try:
+                self._client.connect(host, port, client_id)
+                break
+            except ConnectionError as e:
+                if connection_retry_interval > 0:
+                    time.sleep(connection_retry_interval)
+                else:
+                    raise e
+
         thread = Thread(target = self.run)
         thread.start()
         setattr(thread, "_thread", thread)
@@ -269,10 +279,10 @@ class AsyncioWrapperGenerator:
         with open(filename, "w") as f:
             f.write(f"""
 from ibapi.wrapper import EWrapper
-from ib_tws_server.ib_error import *
 from ib_tws_server.asyncio.ib_writer import IBWriter
 from ib_tws_server.asyncio.request_state import *
 from ib_tws_server.asyncio.subscription_generator import SubscriptionGenerator
+from ib_tws_server.error import *
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.ib_imports import *
 from threading import Lock
@@ -297,7 +307,7 @@ class AsyncioWrapper(EWrapper):
             # Wake up writer
             self._writer.queue.put(lambda *a, **k: None)
         else:
-            raise RuntimeError("Unexpected disconnect")
+            raise ConnectionError("Unexpected disconnect")
 
     def call_response_cb(self, id: RequestId, res=None):
         cb = None

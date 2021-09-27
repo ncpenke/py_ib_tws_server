@@ -27,15 +27,20 @@ def create_app():
 
 def create_ib_client():
     c = AsyncioClient()
-    host = os.getenv('IB_CLIENT_HOST')
-    port = os.getenv('IB_CLIENT_PORT')
+    host = os.getenv('IB_SERVER_HOST')
+    port = os.getenv('IB_SERVER_PORT')
+
     if host is None:
-        logger.warn(f"IB_CLIENT_HOST is not set. Using default")
+        logger.warn(f"IB_SERVER_HOST is not set. Using default")
         host = "127.0.0.1"
     if port is None:
-        logger.warn(f"IB_CLIENT_PORT is not set. Using default")
+        logger.warn(f"IB_SERVER_PORT is not set. Using default")
         port = 7496
-    c.start(host, port, 0)
+    else:
+        port = int(port)
+
+    connection_retry_interval = 5
+    c.start(host, port, 0, connection_retry_interval)
     graphql_resolver_set_client(c)
     return c
 
