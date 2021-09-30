@@ -25,12 +25,13 @@ class IbClientLifespan:
         if scope["type"] != "lifespan":
             await self.app(scope, receive, send)
             return
-
+        # Implement the lifespan ASGI protocol for clean shutdowns
+        # https://asgi.readthedocs.io/en/latest/specs/lifespan.html
         msg = await receive()
         if msg["type"] != "lifespan.startup":
             raise RuntimeError(f"Unexpected Lifetime event {msg}")
         print("REceived start up...")
-        self.ib_client = self.create_ib_client()
+        self.ib_client = self.create_and_start_ib_client()
         await send({"type": "lifespan.startup.complete"})
         msg = await receive()
         if msg["type"] != "lifespan.shutdown":
@@ -38,7 +39,8 @@ class IbClientLifespan:
         self.ib_client.disconnect(True)
         await send({"type": "lifespan.shutdown.complete"})
 
-    def create_ib_client(self):
+    # Create the client object that interacts with TWS and start the connection
+    def create_and_start_ib_client(self):
         c = AsyncioClient()
         host = os.getenv('IB_SERVER_HOST')
         port = os.getenv('IB_SERVER_PORT')
