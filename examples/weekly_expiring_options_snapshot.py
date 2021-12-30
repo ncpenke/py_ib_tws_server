@@ -67,10 +67,11 @@ async def main_loop():
         raise RuntimeError(f"Entry for SMART exchange not found for {symbol}")
 
     reqs = []
-    if expiration not in smart_exchange.expirations:
-        raise RuntimeError(f"{symbol} does not have option contracts expiring {expiration}")
-    for s in smart_exchange.strikes:
-        reqs.append(get_contract_details(expiration, s))
+    #if expiration not in smart_exchange.expirations:
+    #    raise RuntimeError(f"{symbol} does not have option contracts expiring {expiration}")
+    for exp in smart_exchange.expirations:
+        for s in smart_exchange.strikes:
+            reqs.append(get_contract_details(expiration, s))
 
     await asyncio.gather(*reqs, return_exceptions=True)
 
@@ -81,13 +82,13 @@ if __name__ == '__main__':
     parser.add_argument("--client-id", "-c", dest='client_id', help="TWS client id", default=0)
     parser.add_argument("--debug", "-d", dest='debug', action="store_true", help="Enable debug logging", default=False)
     parser.add_argument('--symbol', '-s', dest="symbol", required=True, help='The symbol')
-    parser.add_argument('--expiration', '-e', dest="expiration", required=True, help='The expiration date')
+    parser.add_argument('--expiration', '-e', dest="expiration", required=True, help='The expiration date YYYYMMDD')
     args  = parser.parse_args()
     symbol = args.symbol
     expiration = args.expiration
 
     ib_client = AsyncioClient()
-    ib_client.start(args.host, args.port, args.client_id)
+    ib_client.start(args.host, args.port, args.client_id, 5)
 
     asyncio.run(main_loop())
     ib_client.disconnect(True)
