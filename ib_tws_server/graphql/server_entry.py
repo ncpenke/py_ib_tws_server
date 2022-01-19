@@ -30,7 +30,7 @@ class IbClientLifespan:
         msg = await receive()
         if msg["type"] != "lifespan.startup":
             raise RuntimeError(f"Unexpected Lifetime event {msg}")
-        print("REceived start up...")
+        print("Received start up...")
         self.ib_client = self.create_and_start_ib_client()
         await send({"type": "lifespan.startup.complete"})
         msg = await receive()

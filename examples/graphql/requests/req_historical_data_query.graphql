@@ -1,0 +1,26 @@
+query {
+    ib_reqHistoricalData(
+        contract: {
+            secType: "STK",
+            symbol: "AMZN",
+            currency: "USD",
+            exchange: "SMART"
+        },
+        endDateTime: "20050612 8:00:00",
+        durationStr: "1 D",
+        barSizeSetting: "1 min",
+        whatToShow: "TRADES",
+        useRTH: 0,
+        formatDate: 2,
+        chartOptions: [{value: "XYZ"}]
+    ) {
+        barCount,
+        open,
+        close,
+        high,
+        low,
+        average,
+        date,
+        volume
+    }
+}

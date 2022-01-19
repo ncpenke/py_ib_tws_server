@@ -139,12 +139,16 @@ class GraphQLSchemaGenerator:
                     add_scalar(GeneratorUtils.graphql_public_name(cls.__name__), f"Could not find type for member '{m}'' for class '{cls.__name__}'", True)
                     return ""
 
+            if type_name in REQUIRED_FIELDS:
+                required_fields = REQUIRED_FIELDS[type_name]
+            else:
+                required_fields = {}
             code = f"""
 
 {'input' if is_input else 'type'} {public_name} {{"""
             for p,t in members:
                 code += f"""
-    {p}: {t}"""
+    {p}: {t}{'!' if p in required_fields else ""}"""
             code = code + """
 }"""
             return code
@@ -220,9 +224,9 @@ union {(union_type)} = {"|".join([graphql_type(c, False) for c in GeneratorUtils
             member_sig =  "" if len(member_str) == 0 else f"({member_str})"
             query_return_type = graphql_type(GeneratorUtils.query_return_item_type(d), False)
             if GeneratorUtils.response_is_list(d) and not is_subscription:
-                query_return_type = f"[{query_return_type}]"
+                query_return_type = f"[{query_return_type}!]"
             return f"""
-    {name}{member_sig}: {query_return_type}"""
+    {name}{member_sig}: {query_return_type}!"""
 
         with open(filename, "w") as f:
             for d in REQUEST_DEFINITIONS:

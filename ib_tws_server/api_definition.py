@@ -318,6 +318,17 @@ ENUM_ALIASES = {
     'MarketDataType': 'MarketDataTypeEnum',
 }
 
+""""""
+REQUIRED_FIELDS = {
+    'ibapi.common.BarData': {
+        'close',
+        'date',
+        'high',
+        'low',
+        'open',
+    }
+}
+
 """Missing or incorrect hints for members"""
 OVERRIDDEN_MEMBER_TYPE_HINTS = {
     'Order': {

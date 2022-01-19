@@ -64,7 +64,7 @@
         {
             "label": "run_webserver",
             "type": "shell",
-            "command": ".venv/bin/uvicorn ib_tws_server.graphql.server_entry:app",
+            "command": ".venv/bin/uvicorn ib_tws_server.graphql.server_entry:app --port 8002",
             "options": {
                 "env": {
                     "PYTHONPATH": "${workspaceFolder}"

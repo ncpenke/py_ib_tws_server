@@ -5,7 +5,7 @@ import logging
 from ibapi import contract
 from ibapi.common import BarData
 from ibapi.contract import Contract
-from ib_tws_server.ib_error import *
+from ib_tws_server.error import *
 from ib_tws_server.gen.client_responses import *
 from ib_tws_server.gen.asyncio_client import *
 from typing import Awaitable
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     logging.getLogger("ibapi").setLevel(level=logging.DEBUG if args.debug else logging.ERROR)
 
     c = AsyncioClient()
-    c.start(args.host, args.port, args.client_id)
+    c.start(args.host, args.port, args.client_id, 5)
 
     asyncio.run(main_loop(c))
 
